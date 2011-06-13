@@ -6,6 +6,7 @@
 module JVM.Assembler 
   (Instruction (..),
    ArrayType (..),
+   CodeException (..),
    Code (..),
    IMM (..),
    CMP (..)

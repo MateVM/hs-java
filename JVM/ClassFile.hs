@@ -7,8 +7,9 @@ module JVM.ClassFile
    FieldInfo (..),
    MethodInfo (..),
    AttributeInfo (..),
-   FieldType,
-   FieldSignature, MethodSignature (..), ReturnSignature (..)
+   FieldType (..),
+   FieldSignature, MethodSignature (..), ReturnSignature (..),
+   ArgumentSignature (..)
   )
   where
 
@@ -98,8 +99,8 @@ data FieldType =
   | LongInt    -- ^ J
   | ShortInt   -- ^ S
   | BoolType   -- ^ Z
-  | ObjectType String -- ^ L <class name>
-  | Array (Maybe Int) FieldType -- ^ [<type>
+  | ObjectType String -- ^ L @{class name}@
+  | Array (Maybe Int) FieldType -- ^ @[{type}@
   deriving (Eq)
 
 instance Show FieldType where

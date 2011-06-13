@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances, RecordWildCards, OverloadedStrings #-}
 module JVM.Converter where
 
-import Codec.Binary.UTF8.String hiding (encode, decode)
 import Data.List
 import Data.Word
 import Data.Bits
@@ -17,9 +16,6 @@ import Debug.Trace
 
 import JVM.ClassFile
 import JVM.Types
-
-instance IsString B.ByteString where
-  fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s
 
 decompile :: B.ByteString -> Class
 decompile bstr = convertClass $ decode bstr

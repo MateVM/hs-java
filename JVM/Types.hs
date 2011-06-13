@@ -1,13 +1,19 @@
 {-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 module JVM.Types where
 
+import Codec.Binary.UTF8.String hiding (encode, decode)
 import Data.Array
 import qualified Data.ByteString.Lazy as B
 import Data.Word
+import Data.Char
+import Data.String
 import qualified Data.Set as S
 import qualified Data.Map as M
 
 import JVM.ClassFile
+
+instance IsString B.ByteString where
+  fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s
 
 type Pool = Array Word16 Constant
 

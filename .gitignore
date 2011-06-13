@@ -2,3 +2,5 @@
 *.o
 *.class
 *.bytecode
+*.swp
+.*.swp

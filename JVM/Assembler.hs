@@ -14,21 +14,13 @@ module JVM.Assembler
 
 import Control.Monad
 import Control.Applicative
-import Data.Ix (inRange)
-import Data.List (intercalate)
 import Data.Word
-import Data.Bits
 import qualified Data.Binary as Binary
-import qualified Data.Binary.Get as Get
-import Data.Char
 import qualified Data.ByteString.Lazy as B
 import Data.Array
-import qualified Data.Set as S
-import qualified Data.Map as M
 
 import Data.BinaryState
 import JVM.ClassFile
-import JVM.Types
 
 -- | Immediate constant. Corresponding value will be added to base opcode.
 data IMM =

@@ -18,7 +18,6 @@ import Data.Binary
 import Data.Binary.IEEE754
 import Data.Binary.Get
 import Data.Binary.Put
-import Data.Word
 import Data.Char
 import Data.List
 import qualified Data.ByteString.Lazy as B

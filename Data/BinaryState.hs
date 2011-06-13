@@ -7,7 +7,6 @@ import qualified Data.Binary as Binary
 import qualified Data.Binary.Put as Put
 import qualified Data.Binary.Get as Get
 import qualified Data.ByteString.Lazy as B
-import Foreign.Storable
 import Data.Word
 import Data.Int
 

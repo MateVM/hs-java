@@ -14,14 +14,10 @@ import Data.List
 import Data.Word
 import Data.Bits
 import Data.Binary
-import Data.Char
-import Data.String
 import qualified Data.ByteString.Lazy as B
 import Data.Array
 import qualified Data.Set as S
 import qualified Data.Map as M
-
-import Debug.Trace
 
 import JVM.ClassFile
 import JVM.Types

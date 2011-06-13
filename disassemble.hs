@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+module Main where
+
 import Control.Monad
 import Data.Array
 import System.Environment

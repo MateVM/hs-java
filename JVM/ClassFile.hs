@@ -1,4 +1,6 @@
 {-# LANGUAGE RecordWildCards, BangPatterns #-}
+-- | This module declares (low-level) data types for Java .class files
+-- structures, and Binary instances to read/write them.
 module JVM.ClassFile where
 
 import Control.Monad
@@ -12,44 +14,32 @@ import Data.Char
 import Data.List
 import qualified Data.ByteString.Lazy as B
 
-import Debug.Trace
-
-traceS :: (Show a) => String -> a -> a
-traceS msg x = trace (msg ++ ": " ++ show x) x
-
-char :: Word8 -> Char
-char n = chr (fromIntegral n)
-
+-- | Read one-byte Char
 getChar8 :: Get Char
 getChar8 = do
   x <- getWord8
-  return (char x)
+  return $ chr (fromIntegral x)
 
+-- | Generic .class file format
 data ClassFile = ClassFile {
-  magic :: Word32,
+  magic :: Word32,                   -- ^ Magic value: 0xCAFEBABE
   minorVersion :: Word16,
   majorVersion :: Word16,
-  constsPoolSize :: Word16,
-  constsPool :: [CpInfo],
-  accessFlags :: Word16,
-  thisClass :: Word16,
-  superClass :: Word16,
-  interfacesCount :: Word16,
-  interfaces :: [Word16],
-  classFieldsCount :: Word16,
-  classFields :: [FieldInfo],
-  classMethodsCount :: Word16,
-  classMethods :: [MethodInfo],
-  classAttributesCount :: Word16,
-  classAttributes :: [AttributeInfo]
+  constsPoolSize :: Word16,          -- ^ Number of items in constants pool
+  constsPool :: [CpInfo],            -- ^ Constants pool itself
+  accessFlags :: Word16,             -- ^ See @JVM.Types.AccessFlag@
+  thisClass :: Word16,               -- ^ Constants pool item index for this class
+  superClass :: Word16,              -- ^ --/-- for super class, zero for java.lang.Object
+  interfacesCount :: Word16,         -- ^ Number of implemented interfaces
+  interfaces :: [Word16],            -- ^ Constants pool item indexes for implemented interfaces
+  classFieldsCount :: Word16,        -- ^ Number of class fileds
+  classFields :: [FieldInfo],        -- ^ Class fields
+  classMethodsCount :: Word16,       -- ^ Number of class methods
+  classMethods :: [MethodInfo],      -- ^ Class methods
+  classAttributesCount :: Word16,    -- ^ Number of class attributes
+  classAttributes :: [AttributeInfo] -- ^ Class attributes
   }
   deriving (Eq, Show)
-
-traceM msg x = do
-  r <- x
-  return $ traceS msg r
-
-replicateMT n m = replicateM n (traceM ">" m)
 
 instance Binary ClassFile where
   put (ClassFile {..}) = do
@@ -90,17 +80,18 @@ instance Binary ClassFile where
     return $ ClassFile magic minor major poolsize pool af this super
                interfacesCount ifaces classFieldsCount classFields classMethodsCount classMethods asCount as
 
+-- | Field signature format
 data FieldType =
-    SignedByte -- B
-  | CharByte   -- C
-  | DoubleType -- D
-  | FloatType  -- F
-  | IntType    -- I
-  | LongInt    -- J
-  | ShortInt   -- S
-  | BoolType   -- Z
-  | ObjectType String -- L <class name>
-  | Array (Maybe Int) FieldType
+    SignedByte -- ^ B
+  | CharByte   -- ^ C
+  | DoubleType -- ^ D
+  | FloatType  -- ^ F
+  | IntType    -- ^ I
+  | LongInt    -- ^ J
+  | ShortInt   -- ^ S
+  | BoolType   -- ^ Z
+  | ObjectType String -- ^ L <class name>
+  | Array (Maybe Int) FieldType -- ^ [<type>
   deriving (Eq)
 
 instance Show FieldType where
@@ -116,8 +107,10 @@ instance Show FieldType where
   show (Array Nothing t) = show t ++ "[]"
   show (Array (Just n) t) = show t ++ "[" ++ show n ++ "]"
 
+-- | Class field signature
 type FieldSignature = FieldType
 
+-- | Try to read integer value from decimal representation
 getInt :: Get (Maybe Int)
 getInt = do
     s <- getDigits
@@ -168,6 +161,7 @@ instance Binary FieldType where
              return (Array mbSize sig)
       _   -> fail $ "Unknown signature opening symbol: " ++ [b]
 
+-- | Read string up to `;'
 getToSemicolon :: Get String
 getToSemicolon = do
   x <- get
@@ -177,6 +171,7 @@ getToSemicolon = do
          next <- getToSemicolon
          return (x: next)
 
+-- | Return value signature
 data ReturnSignature =
     Returns FieldType
   | ReturnsVoid
@@ -196,8 +191,10 @@ instance Binary ReturnSignature where
       'V' -> skip 1 >> return ReturnsVoid
       _   -> Returns <$> get
 
+-- | Method argument signature
 type ArgumentSignature = FieldType
 
+-- | Class method argument signature
 data MethodSignature =
     MethodSignature [ArgumentSignature] ReturnSignature
   deriving (Eq)
@@ -223,6 +220,7 @@ instance Binary MethodSignature where
     ret <- get
     return (MethodSignature args ret)
 
+-- | Read arguments signatures (up to `)')
 getArgs :: Get [ArgumentSignature]
 getArgs = whileJust getArg
   where
@@ -242,19 +240,20 @@ whileJust m = do
               return (x: next)
     Nothing -> return []
 
+-- | Constant pool item format
 data CpInfo =
-    CONSTANT_Class {nameIndex :: Word16}                                          -- 7
-  | CONSTANT_Fieldref {classIndex :: Word16, nameAndTypeIndex :: Word16}	        -- 9
-  | CONSTANT_Methodref 	{classIndex :: Word16, nameAndTypeIndex :: Word16}        -- 10
-  | CONSTANT_InterfaceMethodref {classIndex :: Word16, nameAndTypeIndex :: Word16}-- 11
-  | CONSTANT_String {stringIndex :: Word16}                                       -- 8
-  | CONSTANT_Integer {fourBytes :: Word32}	                                      -- 3
-  | CONSTANT_Float Float                                                          -- 4
-  | CONSTANT_Long Word64                                                          -- 5
-  | CONSTANT_Double Double                                                        -- 6
-  | CONSTANT_NameAndType {nameIndex :: Word16, signatureIndex :: Word16} 	        -- 12
-  | CONSTANT_Utf8 {stringLength :: Word16, stringBytes :: B.ByteString}   	      -- 1
-  | CONSTANT_Unicode {stringLength :: Word16, stringBytes :: B.ByteString}   	    -- 2
+    CONSTANT_Class {nameIndex :: Word16}                                          -- ^ 7
+  | CONSTANT_Fieldref {classIndex :: Word16, nameAndTypeIndex :: Word16}	        -- ^ 9
+  | CONSTANT_Methodref 	{classIndex :: Word16, nameAndTypeIndex :: Word16}        -- ^ 10
+  | CONSTANT_InterfaceMethodref {classIndex :: Word16, nameAndTypeIndex :: Word16}-- ^ 11
+  | CONSTANT_String {stringIndex :: Word16}                                       -- ^ 8
+  | CONSTANT_Integer {fourBytes :: Word32}	                                      -- ^ 3
+  | CONSTANT_Float Float                                                          -- ^ 4
+  | CONSTANT_Long Word64                                                          -- ^ 5
+  | CONSTANT_Double Double                                                        -- ^ 6
+  | CONSTANT_NameAndType {nameIndex :: Word16, signatureIndex :: Word16} 	        -- ^ 12
+  | CONSTANT_Utf8 {stringLength :: Word16, stringBytes :: B.ByteString}   	      -- ^ 1
+  | CONSTANT_Unicode {stringLength :: Word16, stringBytes :: B.ByteString}   	    -- ^ 2
   deriving (Eq, Show)
 
 instance Binary CpInfo where
@@ -295,6 +294,7 @@ instance Binary CpInfo where
       12 -> CONSTANT_NameAndType <$> get <*> get
       _  -> fail $ "Unknown constants pool entry tag: " ++ show tag
 
+-- | Class field format
 data FieldInfo = FieldInfo {
   fieldAccessFlags :: Word16,
   fieldNameIndex :: Word16,
@@ -319,6 +319,7 @@ instance Binary FieldInfo where
     as <- replicateM (fromIntegral n) get
     return $ FieldInfo af ni si n as
 
+-- | Class method format
 data MethodInfo = MethodInfo {
   methodAccessFlags :: Word16,
   methodNameIndex :: Word16,
@@ -344,6 +345,8 @@ instance Binary MethodInfo where
     as <- replicateM (fromIntegral n) get
     return $ MethodInfo af ni si n as
 
+-- | Any (class/ field/ method/ ...) attribute format.
+-- Some formats specify special formats for @attributeValue@.
 data AttributeInfo = AttributeInfo {
   attributeName :: Word16,
   attributeLength :: Word32,

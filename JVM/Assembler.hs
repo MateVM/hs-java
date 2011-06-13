@@ -1,16 +1,26 @@
-{-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances, RecordWildCards, OverloadedStrings, TypeSynonymInstances, MultiParamTypeClasses #-}
-module JVM.Assembler where
+{-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances,
+   FlexibleContexts, UndecidableInstances, RecordWildCards, OverloadedStrings,
+   TypeSynonymInstances, MultiParamTypeClasses #-}
+-- | This module declares data type for JVM instructions, and BinaryState
+-- instances to read/write them.
+module JVM.Assembler 
+  (Instruction (..),
+   ArrayType (..),
+   Code (..),
+   IMM (..),
+   CMP (..)
+  )
+  where
 
 import Control.Monad
 import Control.Applicative
 import Data.Ix (inRange)
-import Data.List
+import Data.List (intercalate)
 import Data.Word
 import Data.Bits
 import qualified Data.Binary as Binary
 import qualified Data.Binary.Get as Get
 import Data.Char
-import Data.String
 import qualified Data.ByteString.Lazy as B
 import Data.Array
 import qualified Data.Set as S
@@ -20,13 +30,15 @@ import Data.BinaryState
 import JVM.ClassFile
 import JVM.Types
 
+-- | Immediate constant. Corresponding value will be added to base opcode.
 data IMM =
-    I0
-  | I1
-  | I2
-  | I3
+    I0     -- ^ 0
+  | I1     -- ^ 1
+  | I2     -- ^ 2
+  | I3     -- ^ 3
   deriving (Eq, Ord, Enum, Show)
 
+-- | Comparation operation type. Not all CMP instructions support all operations.
 data CMP =
     C_EQ
   | C_NE
@@ -36,6 +48,7 @@ data CMP =
   | C_LE
   deriving (Eq, Ord, Enum, Show)
 
+-- | Format of Code method attribute.
 data Code = Code {
     codeStackSize :: Word16,
     codeMaxLocals :: Word16,
@@ -47,6 +60,7 @@ data Code = Code {
     codeAttributes :: [AttributeInfo] }
   deriving (Eq, Show)
 
+-- | Exception descriptor
 data CodeException = CodeException {
     eStartPC :: Word16,
     eEndPC :: Word16,
@@ -94,6 +108,7 @@ instance BinaryState Integer Code where
     attrs <- replicateM (fromIntegral nAttrs) get
     return $ Code stackSz locals len code excn excs nAttrs attrs
 
+-- | Read sequence of instructions (to end of stream)
 readInstructions :: GetState Integer [Instruction]
 readInstructions = do
    end <- isEmpty
@@ -104,181 +119,190 @@ readInstructions = do
           next <- readInstructions
           return (x: next)
 
+-- | JVM instruction set
 data Instruction =
-    NOP            -- 0
-  | ACONST_NULL    -- 1
-  | ICONST_M1      -- 2
-  | ICONST_0       -- 3
-  | ICONST_1       -- 4
-  | ICONST_2       -- 5
-  | ICONST_3       -- 6
-  | ICONST_4       -- 7
-  | ICONST_5       -- 8
-  | LCONST_0       -- 9
-  | LCONST_1       -- 10
-  | FCONST_0       -- 11
-  | FCONST_1       -- 12
-  | FCONST_2       -- 13
-  | DCONST_0       -- 14
-  | DCONST_1       -- 15
-  | BIPUSH Word8   -- 16
-  | SIPUSH Word16  -- 17
-  | LDC1 Word8     -- 18
-  | LDC2 Word16    -- 19
-  | LDC2W Word16   -- 20
-  | ILOAD Word8    -- 21
-  | LLOAD Word8    -- 22
-  | FLOAD Word8    -- 23
-  | DLOAD Word8    -- 24
-  | ALOAD Word8    -- 25
-  | ILOAD_ IMM     -- 26, 27, 28, 29
-  | LLOAD_ IMM     -- 30, 31, 32, 33
-  | FLOAD_ IMM     -- 34, 35, 36, 37
-  | DLOAD_ IMM     -- 38, 39, 40, 41
-  | ALOAD_ IMM     -- 42, 43, 44, 45
-  | IALOAD         -- 46
-  | LALOAD         -- 47
-  | FALOAD         -- 48
-  | DALOAD         -- 49
-  | AALOAD         -- 50
-  | BALOAD         -- 51
-  | CALOAD         -- 52
-  | SALOAD         -- 53
-  | ISTORE Word8   -- 54
-  | LSTORE Word8   -- 55
-  | FSTORE Word8   -- 56
-  | DSTORE Word8   -- 57
-  | ASTORE Word8   -- 58
-  | ISTORE_ IMM    -- 59, 60, 61, 62
-  | LSTORE_ IMM    -- 63, 64, 65, 66
-  | FSTORE_ IMM    -- 67, 68, 69, 70
-  | DSTORE_ IMM    -- 71, 72, 73, 74
-  | ASTORE_ IMM    -- 75, 76, 77, 78
-  | IASTORE        -- 79
-  | LASTORE        -- 80
-  | FASTORE        -- 81
-  | DASTORE        -- 82
-  | AASTORE        -- 83
-  | BASTORE        -- 84
-  | CASTORE        -- 85
-  | SASTORE        -- 86
-  | POP            -- 87
-  | POP2           -- 88
-  | DUP            -- 89
-  | DUP_X1         -- 90
-  | DUP_X2         -- 91
-  | DUP2           -- 92
-  | DUP2_X1        -- 93 
-  | DUP2_X2        -- 94
-  | SWAP           -- 95
-  | IADD           -- 96
-  | LADD           -- 97
-  | FADD           -- 98
-  | DADD           -- 99
-  | ISUB           -- 100
-  | LSUB           -- 101
-  | FSUB           -- 102
-  | DSUB           -- 103
-  | IMUL           -- 104
-  | LMUL           -- 105
-  | FMUL           -- 106
-  | DMUL           -- 107
-  | IDIV           -- 108
-  | LDIV           -- 109
-  | FDIV           -- 110
-  | DDIV           -- 111
-  | IREM           -- 112
-  | LREM           -- 113
-  | FREM           -- 114
-  | DREM           -- 115
-  | INEG           -- 116
-  | LNEG           -- 117
-  | FNEG           -- 118
-  | DNEG           -- 119
-  | ISHL           -- 120
-  | LSHL           -- 121
-  | ISHR           -- 122
-  | LSHR           -- 123
-  | IUSHR          -- 124
-  | LUSHR          -- 125
-  | IAND           -- 126
-  | LAND           -- 127
-  | IOR            -- 128
-  | LOR            -- 129
-  | IXOR           -- 130
-  | LXOR           -- 131
-  | IINC Word8 Word8       -- 132
-  | I2L                    -- 133
-  | I2F                    -- 134
-  | I2D                    -- 135
-  | L2I                    -- 136
-  | L2F                    -- 137
-  | L2D                    -- 138
-  | F2I                    -- 139
-  | F2L                    -- 140
-  | F2D                    -- 141
-  | D2I                    -- 142
-  | D2L                    -- 143
-  | D2F                    -- 144
-  | I2B                    -- 145
-  | I2C                    -- 146
-  | I2S                    -- 147
-  | LCMP                   -- 148
-  | FCMP CMP               -- 149, 150
-  | DCMP CMP               -- 151, 152
-  | IF CMP                 -- 153, 154, 155, 156, 157, 158
-  | IF_ICMP CMP Word16     -- 159, 160, 161, 162, 163, 164
-  | IF_ACMP CMP Word16     -- 165, 166
-  | GOTO                   -- 167
-  | JSR Word16             -- 168
-  | RET                    -- 169
-  | TABLESWITCH Word32 Word32 Word32 [Word32]     -- 170
-  | LOOKUPSWITCH Word32 Word32 [(Word32, Word32)] -- 171
-  | IRETURN                -- 172
-  | LRETURN                -- 173
-  | FRETURN                -- 174
-  | DRETURN                -- 175
-  | RETURN                 -- 177
-  | GETSTATIC Word16       -- 178
-  | PUTSTATIC Word16       -- 179
-  | GETFIELD Word16        -- 180
-  | PUTFIELD Word16        -- 181
-  | INVOKEVIRTUAL Word16   -- 182
-  | INVOKESPECIAL Word16   -- 183
-  | INVOKESTATIC Word16    -- 184
-  | INVOKEINTERFACE Word16 Word8 -- 185
-  | NEW Word16             -- 187
-  | NEWARRAY Word8         -- 188, see ArrayType
-  | ANEWARRAY Word16       -- 189
-  | ARRAYLENGTH            -- 190
-  | ATHROW                 -- 191
-  | CHECKCAST Word16       -- 192
-  | INSTANCEOF Word16      -- 193
-  | MONITORENTER           -- 194
-  | MONITOREXIT            -- 195
-  | WIDE Word8 Instruction -- 196
-  | MULTINANEWARRAY Word16 Word8 -- 197
-  | IFNULL Word16          -- 198
-  | IFNONNULL Word16       -- 199
-  | GOTO_W Word32          -- 200
-  | JSR_W Word32           -- 201
+    NOP            -- ^ 0
+  | ACONST_NULL    -- ^ 1
+  | ICONST_M1      -- ^ 2
+  | ICONST_0       -- ^ 3
+  | ICONST_1       -- ^ 4
+  | ICONST_2       -- ^ 5
+  | ICONST_3       -- ^ 6
+  | ICONST_4       -- ^ 7
+  | ICONST_5       -- ^ 8
+  | LCONST_0       -- ^ 9
+  | LCONST_1       -- ^ 10
+  | FCONST_0       -- ^ 11
+  | FCONST_1       -- ^ 12
+  | FCONST_2       -- ^ 13
+  | DCONST_0       -- ^ 14
+  | DCONST_1       -- ^ 15
+  | BIPUSH Word8   -- ^ 16
+  | SIPUSH Word16  -- ^ 17
+  | LDC1 Word8     -- ^ 18
+  | LDC2 Word16    -- ^ 19
+  | LDC2W Word16   -- ^ 20
+  | ILOAD Word8    -- ^ 21
+  | LLOAD Word8    -- ^ 22
+  | FLOAD Word8    -- ^ 23
+  | DLOAD Word8    -- ^ 24
+  | ALOAD Word8    -- ^ 25
+  | ILOAD_ IMM     -- ^ 26, 27, 28, 29
+  | LLOAD_ IMM     -- ^ 30, 31, 32, 33
+  | FLOAD_ IMM     -- ^ 34, 35, 36, 37
+  | DLOAD_ IMM     -- ^ 38, 39, 40, 41
+  | ALOAD_ IMM     -- ^ 42, 43, 44, 45
+  | IALOAD         -- ^ 46
+  | LALOAD         -- ^ 47
+  | FALOAD         -- ^ 48
+  | DALOAD         -- ^ 49
+  | AALOAD         -- ^ 50
+  | BALOAD         -- ^ 51
+  | CALOAD         -- ^ 52
+  | SALOAD         -- ^ 53
+  | ISTORE Word8   -- ^ 54
+  | LSTORE Word8   -- ^ 55
+  | FSTORE Word8   -- ^ 56
+  | DSTORE Word8   -- ^ 57
+  | ASTORE Word8   -- ^ 58
+  | ISTORE_ IMM    -- ^ 59, 60, 61, 62
+  | LSTORE_ IMM    -- ^ 63, 64, 65, 66
+  | FSTORE_ IMM    -- ^ 67, 68, 69, 70
+  | DSTORE_ IMM    -- ^ 71, 72, 73, 74
+  | ASTORE_ IMM    -- ^ 75, 76, 77, 78
+  | IASTORE        -- ^ 79
+  | LASTORE        -- ^ 80
+  | FASTORE        -- ^ 81
+  | DASTORE        -- ^ 82
+  | AASTORE        -- ^ 83
+  | BASTORE        -- ^ 84
+  | CASTORE        -- ^ 85
+  | SASTORE        -- ^ 86
+  | POP            -- ^ 87
+  | POP2           -- ^ 88
+  | DUP            -- ^ 89
+  | DUP_X1         -- ^ 90
+  | DUP_X2         -- ^ 91
+  | DUP2           -- ^ 92
+  | DUP2_X1        -- ^ 93 
+  | DUP2_X2        -- ^ 94
+  | SWAP           -- ^ 95
+  | IADD           -- ^ 96
+  | LADD           -- ^ 97
+  | FADD           -- ^ 98
+  | DADD           -- ^ 99
+  | ISUB           -- ^ 100
+  | LSUB           -- ^ 101
+  | FSUB           -- ^ 102
+  | DSUB           -- ^ 103
+  | IMUL           -- ^ 104
+  | LMUL           -- ^ 105
+  | FMUL           -- ^ 106
+  | DMUL           -- ^ 107
+  | IDIV           -- ^ 108
+  | LDIV           -- ^ 109
+  | FDIV           -- ^ 110
+  | DDIV           -- ^ 111
+  | IREM           -- ^ 112
+  | LREM           -- ^ 113
+  | FREM           -- ^ 114
+  | DREM           -- ^ 115
+  | INEG           -- ^ 116
+  | LNEG           -- ^ 117
+  | FNEG           -- ^ 118
+  | DNEG           -- ^ 119
+  | ISHL           -- ^ 120
+  | LSHL           -- ^ 121
+  | ISHR           -- ^ 122
+  | LSHR           -- ^ 123
+  | IUSHR          -- ^ 124
+  | LUSHR          -- ^ 125
+  | IAND           -- ^ 126
+  | LAND           -- ^ 127
+  | IOR            -- ^ 128
+  | LOR            -- ^ 129
+  | IXOR           -- ^ 130
+  | LXOR           -- ^ 131
+  | IINC Word8 Word8       -- ^ 132
+  | I2L                    -- ^ 133
+  | I2F                    -- ^ 134
+  | I2D                    -- ^ 135
+  | L2I                    -- ^ 136
+  | L2F                    -- ^ 137
+  | L2D                    -- ^ 138
+  | F2I                    -- ^ 139
+  | F2L                    -- ^ 140
+  | F2D                    -- ^ 141
+  | D2I                    -- ^ 142
+  | D2L                    -- ^ 143
+  | D2F                    -- ^ 144
+  | I2B                    -- ^ 145
+  | I2C                    -- ^ 146
+  | I2S                    -- ^ 147
+  | LCMP                   -- ^ 148
+  | FCMP CMP               -- ^ 149, 150
+  | DCMP CMP               -- ^ 151, 152
+  | IF CMP                 -- ^ 153, 154, 155, 156, 157, 158
+  | IF_ICMP CMP Word16     -- ^ 159, 160, 161, 162, 163, 164
+  | IF_ACMP CMP Word16     -- ^ 165, 166
+  | GOTO                   -- ^ 167
+  | JSR Word16             -- ^ 168
+  | RET                    -- ^ 169
+  | TABLESWITCH Word32 Word32 Word32 [Word32]     -- ^ 170
+  | LOOKUPSWITCH Word32 Word32 [(Word32, Word32)] -- ^ 171
+  | IRETURN                -- ^ 172
+  | LRETURN                -- ^ 173
+  | FRETURN                -- ^ 174
+  | DRETURN                -- ^ 175
+  | RETURN                 -- ^ 177
+  | GETSTATIC Word16       -- ^ 178
+  | PUTSTATIC Word16       -- ^ 179
+  | GETFIELD Word16        -- ^ 180
+  | PUTFIELD Word16        -- ^ 181
+  | INVOKEVIRTUAL Word16   -- ^ 182
+  | INVOKESPECIAL Word16   -- ^ 183
+  | INVOKESTATIC Word16    -- ^ 184
+  | INVOKEINTERFACE Word16 Word8 -- ^ 185
+  | NEW Word16             -- ^ 187
+  | NEWARRAY Word8         -- ^ 188, see @ArrayType@
+  | ANEWARRAY Word16       -- ^ 189
+  | ARRAYLENGTH            -- ^ 190
+  | ATHROW                 -- ^ 191
+  | CHECKCAST Word16       -- ^ 192
+  | INSTANCEOF Word16      -- ^ 193
+  | MONITORENTER           -- ^ 194
+  | MONITOREXIT            -- ^ 195
+  | WIDE Word8 Instruction -- ^ 196
+  | MULTINANEWARRAY Word16 Word8 -- ^ 197
+  | IFNULL Word16          -- ^ 198
+  | IFNONNULL Word16       -- ^ 199
+  | GOTO_W Word32          -- ^ 200
+  | JSR_W Word32           -- ^ 201
   deriving (Eq, Show)
 
+-- ^ JVM array type (primitive types)
 data ArrayType =
-    T_BOOLEAN  -- 4
-  | T_CHAR     -- 5
-  | T_FLOAT    -- 6
-  | T_DOUBLE   -- 7
-  | T_BYTE     -- 8
-  | T_SHORT    -- 9
-  | T_INT      -- 10
-  | T_LONG     -- 11
+    T_BOOLEAN  -- ^ 4
+  | T_CHAR     -- ^ 5
+  | T_FLOAT    -- ^ 6
+  | T_DOUBLE   -- ^ 7
+  | T_BYTE     -- ^ 8
+  | T_SHORT    -- ^ 9
+  | T_INT      -- ^ 10
+  | T_LONG     -- ^ 11
   deriving (Eq, Show, Enum)
 
-imm :: Word8 -> (IMM -> Instruction) -> Word8 -> GetState s Instruction
+-- ^ Parse opcode with immediate constant
+imm :: Word8                   -- ^ Base opcode
+    -> (IMM -> Instruction)    -- ^ Instruction constructor
+    -> Word8                   -- ^ Opcode to parse
+    -> GetState s Instruction
 imm base constr x = return $ constr $ toEnum $ fromIntegral (x-base)
 
-putImm :: Word8 -> IMM -> PutState Integer ()
+-- ^ Put opcode with immediate constant
+putImm :: Word8                -- ^ Base opcode
+       -> IMM                  -- ^ Constant to add to opcode
+       -> PutState Integer ()
 putImm base i = putByte $ base + (fromIntegral $ fromEnum i)
 
 atype2byte :: ArrayType -> Word8
@@ -309,12 +333,20 @@ instance BinaryState Integer ArrayType where
 
   put t = putByte (atype2byte t)
 
-put1 :: (BinaryState Integer a) => Word8 -> a -> PutState Integer ()
+-- ^ Put opcode with one argument
+put1 :: (BinaryState Integer a)
+      => Word8                  -- ^ Opcode
+      -> a                      -- ^ First argument
+      -> PutState Integer ()
 put1 code x = do
   putByte code
   put x
 
-put2 :: (BinaryState Integer a, BinaryState Integer b) => Word8 -> a -> b -> PutState Integer ()
+put2 :: (BinaryState Integer a, BinaryState Integer b)
+     => Word8                   -- ^ Opcode
+     -> a                       -- ^ First argument
+     -> b                       -- ^ Second argument
+     -> PutState Integer ()
 put2 code x y = do
   putByte code
   put x

@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
+-- | This module declares `high-level' data types for Java classes, methods etc.
 module JVM.Types where
 
 import Codec.Binary.UTF8.String hiding (encode, decode)
@@ -18,11 +19,13 @@ instance IsString B.ByteString where
 toString :: B.ByteString -> String
 toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
 
+-- | Constant pool
 type Pool = Array Word16 Constant
 
 class HasAttributes a where
   attributes :: a -> Attributes
 
+-- | Java class
 data Class = Class {
   constantPool :: Pool,
   classAccess :: Access,
@@ -41,6 +44,7 @@ instance HasAttributes Class where
 class HasSignature a where
   type Signature a
 
+-- | Name and signature pair. Used for methods and fields.
 data NameType a = NameType {
   ntName :: B.ByteString,
   ntSignature :: Signature a }
@@ -50,6 +54,7 @@ instance Show (Signature a) => Show (NameType a) where
 
 deriving instance Eq (Signature a) => Eq (NameType a)
 
+-- | Constant pool item
 data Constant =
     CClass {className :: B.ByteString}
   | CField {refClass :: B.ByteString, fieldNameType :: NameType Field}
@@ -79,6 +84,7 @@ instance Show Constant where
   show (CUTF8 s) = "UTF8 \"" ++ toString s ++ "\""
   show (CUnicode s) = "Unicode \"" ++ toString s ++ "\""
 
+-- | Class field
 data Field = Field {
   fieldAccess :: Access,
   fieldName :: B.ByteString,
@@ -92,6 +98,7 @@ instance HasSignature Field where
 instance HasAttributes Field where
   attributes = fieldAttrs
 
+-- | Class method
 data Method = Method {
   methodAccess :: Access,
   methodName :: B.ByteString,
@@ -105,30 +112,30 @@ instance HasSignature Method where
 instance HasAttributes Method where
   attributes = methodAttrs
 
+-- | Set of access flags
 type Access = S.Set AccessFlag
 
+-- | Access flags. Used for classess, methods, variables.
 data AccessFlag =
-    ACC_PUBLIC 	     -- 0x0001 Видимый для всех 	Класс, Метод, Переменная
-  | ACC_PRIVATE 	   -- 0x0002 Видимый только для определяемого класса 	Метод, Переменная
-  | ACC_PROTECTED 	 -- 0x0004 Видимый для подклассов 	Метод, Переменная
-  | ACC_STATIC 	     -- 0x0008 Переменная или метод статические 	Метод, Переменная
-  | ACC_FINAL 	     -- 0x0010 Нет дальнейшей подкласификации, обхода или присваивания после инициализации 	Класс, Метод, Переменная
-  | ACC_SYNCHRONIZED -- 0x0020 Использует возврат в блокировке монитора 	Метод
-  | ACC_VOLATILE 	   -- 0x0040 Не может помещать в кеш 	Переменная
-  | ACC_TRANSIENT 	 -- 0x0080 Не может боть написан или прочитан постоянным объектом управления 	Перемення
-  | ACC_NATIVE 	     -- 0x0100 Реализован в других языках 	Метод
-  | ACC_INTERFACE 	 -- 0x0200 интерфейс 	Класс
-  | ACC_ABSTRACT 	   -- 0x0400 Ничего не предусматривает 	Класс, Метод
+    ACC_PUBLIC 	     -- 0x0001 Visible for all
+  | ACC_PRIVATE 	   -- 0x0002 Visible only for defined class
+  | ACC_PROTECTED 	 -- 0x0004 Visible only for subclasses
+  | ACC_STATIC 	     -- 0x0008 Static method or variable
+  | ACC_FINAL 	     -- 0x0010 No further subclassing or assignments
+  | ACC_SYNCHRONIZED -- 0x0020 Uses monitors
+  | ACC_VOLATILE 	   -- 0x0040 Could not be cached
+  | ACC_TRANSIENT 	 -- 0x0080 
+  | ACC_NATIVE 	     -- 0x0100 Implemented in other language
+  | ACC_INTERFACE 	 -- 0x0200 Class is interface
+  | ACC_ABSTRACT 	   -- 0x0400 
   deriving (Eq, Show, Ord)
 
+-- | Generic attribute
 data Attribute = Attribute {
   attrName :: B.ByteString,
   attrValue :: B.ByteString }
   deriving (Eq, Show)
 
-class AttributeValue a where
-  decodeAttribute :: B.ByteString -> a
-  encodeAttribute :: a -> B.ByteString
-
+-- | Set of attributes
 type Attributes = M.Map B.ByteString B.ByteString
 

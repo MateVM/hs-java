@@ -1,5 +1,14 @@
 {-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances, RecordWildCards, OverloadedStrings #-}
-module JVM.Converter where
+-- | Functions to convert from low-level .class format representation and
+-- high-level Java classes, methods etc representation
+module JVM.Converter
+  (decompile, decompileFile,
+   convertClass,
+   methodByName,
+   attrByName,
+   methodCode
+  )
+  where
 
 import Data.List
 import Data.Word
@@ -17,9 +26,11 @@ import Debug.Trace
 import JVM.ClassFile
 import JVM.Types
 
+-- | Parse .class file data
 decompile :: B.ByteString -> Class
 decompile bstr = convertClass $ decode bstr
 
+-- | Parse class data from file
 decompileFile :: FilePath -> IO Class
 decompileFile path = convertClass `fmap` decodeFile path
 
@@ -62,8 +73,6 @@ constantPoolArray list = pool
     convert (CONSTANT_Utf8 _ bs) = CUTF8 bs
     convert (CONSTANT_Unicode _ bs) = CUnicode bs
 
-className' x = trace ("Class name: " ++ show x) B.empty
-
 convertAccess :: Word16 -> Access
 convertAccess w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
    ACC_PUBLIC,
@@ -98,14 +107,19 @@ convertAttrs pool attrs = M.fromList $ map go attrs
     go (AttributeInfo {..}) = (getString $ pool ! attributeName,
                                attributeValue)
 
+-- | Try to get class method by name
 methodByName :: Class -> B.ByteString -> Maybe Method
 methodByName cls name =
   find (\m -> methodName m == name) (methods cls)
 
+-- | Try to get object attribute by name
 attrByName :: (HasAttributes a) => a -> B.ByteString -> Maybe B.ByteString
 attrByName x name = M.lookup name (attributes x)
 
-methodCode :: Class -> B.ByteString -> Maybe B.ByteString
+-- | Try to get Code for class method (no Code for interface methods)
+methodCode :: Class
+           -> B.ByteString       -- ^ Method name
+           -> Maybe B.ByteString
 methodCode cls name = do
   method <- methodByName cls name
   attrByName method "Code"

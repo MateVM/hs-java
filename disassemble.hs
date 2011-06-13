@@ -23,7 +23,8 @@ main = do
       putStrLn "Methods:"
       forM_ (methods cls) $ \m -> do
         putStr ">> Method "
-        B.putStrLn (methodName m)
+        B.putStr (methodName m)
+        print (methodSignature m)
         case attrByName m "Code" of
           Nothing -> putStrLn "(no code)\n"
           Just bytecode -> let code = decodeS (0 :: Integer) bytecode

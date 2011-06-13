@@ -1,7 +1,16 @@
 {-# LANGUAGE RecordWildCards, BangPatterns #-}
 -- | This module declares (low-level) data types for Java .class files
 -- structures, and Binary instances to read/write them.
-module JVM.ClassFile where
+module JVM.ClassFile
+  (ClassFile (..),
+   CpInfo (..),
+   FieldInfo (..),
+   MethodInfo (..),
+   AttributeInfo (..),
+   FieldType,
+   FieldSignature, MethodSignature (..), ReturnSignature (..)
+  )
+  where
 
 import Control.Monad
 import Control.Applicative

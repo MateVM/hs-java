@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 import Control.Monad
+import Data.Array
 import System.Environment
 import qualified Data.ByteString.Lazy as B
+import Text.Printf
 
 import Data.BinaryState
 import JVM.Types
@@ -15,6 +17,9 @@ main = do
       cls <- decompileFile clspath
       putStr "Class: "
       B.putStrLn (this cls)
+      putStrLn "Constants pool:"
+      forM_ (assocs $ constantPool cls) $ \(i, c) ->
+        putStrLn $ printf "  #%d:\t%s" i (show c)
       putStrLn "Methods:"
       forM_ (methods cls) $ \m -> do
         putStr ">> Method "

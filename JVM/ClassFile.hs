@@ -9,6 +9,7 @@ import Data.Binary.Get
 import Data.Binary.Put
 import Data.Word
 import Data.Char
+import Data.List
 import qualified Data.ByteString.Lazy as B
 
 import Debug.Trace
@@ -100,7 +101,20 @@ data FieldType =
   | BoolType   -- Z
   | ObjectType String -- L <class name>
   | Array (Maybe Int) FieldType
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show FieldType where
+  show SignedByte = "byte"
+  show CharByte = "char"
+  show DoubleType = "double"
+  show FloatType = "float"
+  show IntType = "int"
+  show LongInt = "long"
+  show ShortInt = "short"
+  show BoolType = "bool"
+  show (ObjectType s) = "Object " ++ s
+  show (Array Nothing t) = show t ++ "[]"
+  show (Array (Just n) t) = show t ++ "[" ++ show n ++ "]"
 
 type FieldSignature = FieldType
 
@@ -166,7 +180,11 @@ getToSemicolon = do
 data ReturnSignature =
     Returns FieldType
   | ReturnsVoid
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show ReturnSignature where
+  show (Returns t) = show t
+  show ReturnsVoid = "Void"
 
 instance Binary ReturnSignature where
   put (Returns sig) = put sig
@@ -182,7 +200,10 @@ type ArgumentSignature = FieldType
 
 data MethodSignature =
     MethodSignature [ArgumentSignature] ReturnSignature
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show MethodSignature where
+  show (MethodSignature args ret) = "(" ++ intercalate ", " (map show args) ++ ") returns " ++ show ret
 
 instance Binary MethodSignature where
   put (MethodSignature args ret) = do

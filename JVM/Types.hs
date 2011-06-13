@@ -15,6 +15,9 @@ import JVM.ClassFile
 instance IsString B.ByteString where
   fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s
 
+toString :: B.ByteString -> String
+toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
+
 type Pool = Array Word16 Constant
 
 class HasAttributes a where
@@ -42,7 +45,9 @@ data NameType a = NameType {
   ntName :: B.ByteString,
   ntSignature :: Signature a }
 
-deriving instance Show (Signature a) => Show (NameType a)
+instance Show (Signature a) => Show (NameType a) where
+  show (NameType n t) = toString n ++ ": " ++ show t
+
 deriving instance Eq (Signature a) => Eq (NameType a)
 
 data Constant =
@@ -58,7 +63,21 @@ data Constant =
   | CNameType B.ByteString B.ByteString
   | CUTF8 {getString :: B.ByteString}
   | CUnicode {getString :: B.ByteString}
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Constant where
+  show (CClass name) = "class " ++ toString name
+  show (CField cls nt) = "field " ++ toString cls ++ "." ++ show nt
+  show (CMethod cls nt) = "method " ++ toString cls ++ "." ++ show nt
+  show (CIfaceMethod cls nt) = "interface method " ++ toString cls ++ "." ++ show nt
+  show (CString s) = "String \"" ++ toString s ++ "\""
+  show (CInteger x) = show x
+  show (CFloat x) = show x
+  show (CLong x) = show x
+  show (CDouble x) = show x
+  show (CNameType name tp) = toString name ++ ": " ++ toString tp
+  show (CUTF8 s) = "UTF8 \"" ++ toString s ++ "\""
+  show (CUnicode s) = "Unicode \"" ++ toString s ++ "\""
 
 data Field = Field {
   fieldAccess :: Access,

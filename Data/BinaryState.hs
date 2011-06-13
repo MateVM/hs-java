@@ -36,6 +36,11 @@ encodeS s a = Put.runPut $ State.evalStateT (put a) s
 decodeS :: (BinaryState s a) => s -> B.ByteString -> a
 decodeS s str = Get.runGet (State.evalStateT get s) str
 
+decodeWith :: GetState s a -> s -> B.ByteString -> a
+decodeWith getter s str =
+  let (x,_,_) = Get.runGetState (State.evalStateT getter s) str 0
+  in  x
+
 encodeFile :: BinaryState s a => FilePath -> s -> a -> IO ()
 encodeFile f s v = B.writeFile f (encodeS s v)
 

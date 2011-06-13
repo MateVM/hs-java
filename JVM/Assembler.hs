@@ -17,6 +17,7 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 
 import Data.BinaryState
+import JVM.ClassFile
 import JVM.Types
 
 data IMM =
@@ -35,20 +36,73 @@ data CMP =
   | C_LE
   deriving (Eq, Ord, Enum, Show)
 
-newtype Code = Code [Instruction]
+data Code = Code {
+    codeStackSize :: Word16,
+    codeMaxLocals :: Word16,
+    codeLength :: Word32,
+    codeInstructions :: [Instruction],
+    codeExceptionsN :: Word16,
+    codeExceptions :: [CodeException],
+    codeAttrsN :: Word16,
+    codeAttributes :: [AttributeInfo] }
   deriving (Eq, Show)
 
+data CodeException = CodeException {
+    eStartPC :: Word16,
+    eEndPC :: Word16,
+    eHandlerPC :: Word16,
+    eCatchType :: Word16 }
+  deriving (Eq, Show)
+
+instance BinaryState Integer CodeException where
+  put (CodeException {..}) = do
+    put eStartPC
+    put eEndPC
+    put eHandlerPC
+    put eCatchType
+
+  get = CodeException <$> get <*> get <*> get <*> get
+
+instance BinaryState Integer AttributeInfo where
+  put a = do
+    let sz = 6 + attributeLength a      -- full size of AttributeInfo structure
+    liftOffset (fromIntegral sz) Binary.put a
+
+  get = getZ
+
 instance BinaryState Integer Code where
-  put (Code list) = forM_ list put
+  put (Code {..}) = do
+    put codeStackSize
+    put codeMaxLocals
+    put codeLength
+    forM_ codeInstructions put
+    put codeExceptionsN
+    forM_ codeExceptions put
+    put codeAttrsN
+    forM_ codeAttributes put
 
   get = do
-    end <- isEmpty
-    if end
-      then return $ Code []
-      else do
-           x <- get
-           (Code next) <- get
-           return $ Code (x: next)
+    stackSz <- get
+    locals <- get
+    len <- get
+    bytes <- replicateM (fromIntegral len) get
+    let bytecode = B.pack bytes
+        code = decodeWith readInstructions 0 bytecode
+    excn <- get
+    excs <- replicateM (fromIntegral excn) get
+    nAttrs <- get
+    attrs <- replicateM (fromIntegral nAttrs) get
+    return $ Code stackSz locals len code excn excs nAttrs attrs
+
+readInstructions :: GetState Integer [Instruction]
+readInstructions = do
+   end <- isEmpty
+   if end
+     then return []
+     else do
+          x <- get
+          next <- readInstructions
+          return (x: next)
 
 data Instruction =
     NOP            -- 0
@@ -173,8 +227,8 @@ data Instruction =
   | FCMP CMP               -- 149, 150
   | DCMP CMP               -- 151, 152
   | IF CMP                 -- 153, 154, 155, 156, 157, 158
-  | IF_ACMP CMP Word16     -- 165, 166
   | IF_ICMP CMP Word16     -- 159, 160, 161, 162, 163, 164
+  | IF_ACMP CMP Word16     -- 165, 166
   | GOTO                   -- 167
   | JSR Word16             -- 168
   | RET                    -- 169

@@ -21,7 +21,9 @@ main = do
         B.putStrLn (methodName m)
         case attrByName m "Code" of
           Nothing -> putStrLn "(no code)\n"
-          Just bytecode -> let (Code code) = decodeS (0 :: Integer) bytecode
-                           in  forM_ code print
+          Just bytecode -> let code = decodeS (0 :: Integer) bytecode
+                           in  forM_ (codeInstructions code) $ \i -> do
+                                 putStr "  "
+                                 print i
 
     _ -> error "Synopsis: disassemble File.class"

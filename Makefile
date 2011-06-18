@@ -1,8 +1,8 @@
 GHC=ghc --make -fwarn-unused-imports
 
-all: disassemble
+all: dump-class
 
-disassemble: disassemble.hs */*.hs
+dump-class: dump-class.hs */*.hs
 	$(GHC) $<
 
 clean:

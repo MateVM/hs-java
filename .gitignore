@@ -4,3 +4,5 @@
 *.bytecode
 *.swp
 .*.swp
+dump-class
+dist/

@@ -273,7 +273,7 @@ data Instruction =
   | JSR_W Word32           -- ^ 201
   deriving (Eq, Show)
 
--- ^ JVM array type (primitive types)
+-- | JVM array type (primitive types)
 data ArrayType =
     T_BOOLEAN  -- ^ 4
   | T_CHAR     -- ^ 5
@@ -285,14 +285,14 @@ data ArrayType =
   | T_LONG     -- ^ 11
   deriving (Eq, Show, Enum)
 
--- ^ Parse opcode with immediate constant
+-- | Parse opcode with immediate constant
 imm :: Word8                   -- ^ Base opcode
     -> (IMM -> Instruction)    -- ^ Instruction constructor
     -> Word8                   -- ^ Opcode to parse
     -> GetState s Instruction
 imm base constr x = return $ constr $ toEnum $ fromIntegral (x-base)
 
--- ^ Put opcode with immediate constant
+-- | Put opcode with immediate constant
 putImm :: Word8                -- ^ Base opcode
        -> IMM                  -- ^ Constant to add to opcode
        -> PutState Integer ()
@@ -326,7 +326,7 @@ instance BinaryState Integer ArrayType where
 
   put t = putByte (atype2byte t)
 
--- ^ Put opcode with one argument
+-- | Put opcode with one argument
 put1 :: (BinaryState Integer a)
       => Word8                  -- ^ Opcode
       -> a                      -- ^ First argument

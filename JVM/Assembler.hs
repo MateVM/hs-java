@@ -9,7 +9,9 @@ module JVM.Assembler
    CodeException (..),
    Code (..),
    IMM (..),
-   CMP (..)
+   CMP (..),
+   encodeMethod,
+   decodeMethod
   )
   where
 
@@ -704,3 +706,11 @@ instance BinaryState Integer Instruction where
         | inRange (159, 164) c -> IF_ICMP (toEnum $ fromIntegral $ c-159) <$> get
         | otherwise -> fail $ "Unknown instruction byte code: " ++ show c
   
+-- | Decode Java method
+decodeMethod :: B.ByteString -> Code
+decodeMethod str = decodeS (0 :: Integer) str
+
+-- | Encode Java method
+encodeMethod :: Code -> B.ByteString
+encodeMethod code = encodeS (0 :: Integer) code
+

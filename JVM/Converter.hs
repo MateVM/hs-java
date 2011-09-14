@@ -2,7 +2,7 @@
 -- | Functions to convert from low-level .class format representation and
 -- high-level Java classes, methods etc representation
 module JVM.Converter
-  (decompile, decompileFile,
+  (parseClass, parseClassFile,
    convertClass,
    methodByName,
    attrByName,
@@ -23,12 +23,15 @@ import JVM.ClassFile
 import JVM.Types
 
 -- | Parse .class file data
-decompile :: B.ByteString -> Class
-decompile bstr = convertClass $ decode bstr
+parseClass :: B.ByteString -> Class
+parseClass bstr = convertClass $ decode bstr
 
 -- | Parse class data from file
-decompileFile :: FilePath -> IO Class
-decompileFile path = convertClass `fmap` decodeFile path
+parseClassFile :: FilePath -> IO Class
+parseClassFile path = convertClass `fmap` decodeFile path
+
+encodeClass :: Class -> B.ByteString
+encodeClass cls = encode $ classFile cls
 
 convertClass :: ClassFile -> Class
 convertClass (ClassFile {..}) =
@@ -43,6 +46,83 @@ convertClass (ClassFile {..}) =
       fields = map (convertField pool) classFields,
       methods = map (convertMethod pool) classMethods,
       classAttrs = convertAttrs pool classAttributes }
+
+classFile :: Class -> ClassFile
+classFile (Class {..}) = ClassFile {
+    magic = 0xCAFEBABE,
+    minorVersion = 0,
+    majorVersion = 50,
+    constsPoolSize = fromIntegral (length poolInfo),
+    constsPool = poolInfo,
+    accessFlags = access2word16 classAccess,
+    thisClass = poolIndex poolInfo this,
+    superClass = poolIndex poolInfo this,
+    interfacesCount = fromIntegral (length implements),
+    interfaces = map (poolIndex poolInfo) implements,
+    classFieldsCount = fromIntegral (length fields),
+    classFields = map (fieldInfo poolInfo) fields,
+    classMethodsCount = fromIntegral (length methods),
+    classMethods = map (methodInfo poolInfo) methods,
+    classAttributesCount = fromIntegral (M.size classAttrs),
+    classAttributes = map (attrInfo poolInfo) (M.assocs classAttrs) }
+  where
+    poolInfo = toCPInfo constantPool
+
+toCPInfo :: Pool -> [CpInfo]
+toCPInfo pool = result
+  where
+    result = map cpInfo $ elems pool
+
+    cpInfo (CClass name) = CONSTANT_Class (poolIndex result name)
+    cpInfo (CField cls name) =
+      CONSTANT_Fieldref (poolIndex result cls) (poolIndex result name)
+    cpInfo (CMethod cls name) =
+      CONSTANT_Methodref (poolIndex result cls) (poolIndex result name)
+    cpInfo (CIfaceMethod cls name) =
+      CONSTANT_InterfaceMethodref (poolIndex result cls) (poolIndex result name)
+    cpInfo (CString s) = CONSTANT_String (poolIndex result s)
+    cpInfo (CInteger x) = CONSTANT_Integer x
+    cpInfo (CFloat x) = CONSTANT_Float x
+    cpInfo (CLong x) = CONSTANT_Long (fromIntegral x)
+    cpInfo (CDouble x) = CONSTANT_Double x
+    cpInfo (CNameType n t) =
+      CONSTANT_NameAndType (poolIndex result n) (poolIndex result t)
+    cpInfo (CUTF8 s) = CONSTANT_Utf8 (fromIntegral $ B.length s) s
+    cpInfo (CUnicode s) = CONSTANT_Unicode (fromIntegral $ B.length s) s
+
+poolIndex :: [CpInfo] -> B.ByteString -> Word16
+poolIndex list name = case findIndex test list of
+                        Nothing -> error $ "Internal error: no such item in pool: " ++ toString name
+                        Just i -> fromIntegral i
+  where
+    test (CUTF8 s)    | s == name = True
+    test (CUnicode s) | s == name = True
+    test _                        = False
+
+
+
+fieldInfo :: [CpInfo] -> Field -> FieldInfo
+fieldInfo pool (Field {..}) = FieldInfo {
+  fieldAccessFlags = access2word16 fieldAccess,
+  fieldNameIndex = poolIndex pool fieldName,
+  fieldSignatureIndex = poolIndex pool (encode fieldSignature),
+  fieldAttributesCount = fromIntegral (M.size fieldAttrs),
+  fieldAttributes = map (attrInfo pool) (M.assocs fieldAttrs) }
+
+methodInfo :: [CpInfo] -> Method -> MethodInfo
+methodInfo pool (Method {..}) = MethodInfo {
+  methodAccessFlags = access2word16 methodAccess,
+  methodNameIndex = poolIndex pool methodName,
+  methodSignatureIndex = poolIndex pool (encode methodSignature),
+  methodAttributesCount = fromIntegral (M.size methodAttrs),
+  methodAttributes = map (attrInfo pool) (M.assocs methodAttrs) }
+
+attrInfo :: [CpInfo] -> (B.ByteString, B.ByteString) -> AttributeInfo
+attrInfo pool (name, value) = AttributeInfo {
+  attributeName = poolIndex pool name,
+  attributeLength = fromIntegral (B.length value),
+  attributeValue = value }
+
 
 constantPoolArray :: [CpInfo] -> Pool
 constantPoolArray list = pool
@@ -82,6 +162,12 @@ convertAccess w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f]
    ACC_NATIVE,
    ACC_INTERFACE,
    ACC_ABSTRACT ]
+
+access2word16 :: Access -> Word16
+access2word16 fs = bitsOr $ map toBit $ S.toList fs
+  where
+    bitsOr = foldl (.|.) 0
+    toBit f = 1 `shiftL` (fromIntegral $ fromEnum f)
 
 convertField :: Pool -> FieldInfo -> Field
 convertField pool (FieldInfo {..}) = Field {

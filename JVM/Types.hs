@@ -128,7 +128,7 @@ data AccessFlag =
   | ACC_NATIVE 	     -- ^ 0x0100 Implemented in other language
   | ACC_INTERFACE 	 -- ^ 0x0200 Class is interface
   | ACC_ABSTRACT 	   -- ^ 0x0400 
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Show, Ord, Enum)
 
 -- | Generic attribute
 data Attribute = Attribute {

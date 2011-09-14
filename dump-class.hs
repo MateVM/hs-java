@@ -7,7 +7,6 @@ import System.Environment
 import qualified Data.ByteString.Lazy as B
 import Text.Printf
 
-import Data.BinaryState
 import JVM.Types
 import JVM.Converter
 import JVM.Assembler
@@ -16,7 +15,7 @@ main = do
   args <- getArgs
   case args of
     [clspath] -> do
-      cls <- decompileFile clspath
+      cls <- parseClassFile clspath
       putStr "Class: "
       B.putStrLn (this cls)
       putStrLn "Constants pool:"
@@ -29,9 +28,10 @@ main = do
         print (methodSignature m)
         case attrByName m "Code" of
           Nothing -> putStrLn "(no code)\n"
-          Just bytecode -> let code = decodeS (0 :: Integer) bytecode
+          Just bytecode -> let code = decodeMethod bytecode
                            in  forM_ (codeInstructions code) $ \i -> do
                                  putStr "  "
                                  print i
 
-    _ -> error "Synopsis: disassemble File.class"
+    _ -> error "Synopsis: dump-class File.class"
+

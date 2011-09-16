@@ -2,9 +2,6 @@
 module JVM.Exceptions where
 
 import Control.Monad.Exception
-import qualified Data.ByteString.Lazy as B
-
-import JVM.Types
 
 data NoItemInPool = forall a. Show a => NoItemInPool a
   deriving (Typeable)

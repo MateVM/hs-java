@@ -8,7 +8,6 @@ import Data.Array
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
-import Data.Word
 import Data.Char
 import Data.String
 import qualified Data.Set as S

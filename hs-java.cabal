@@ -21,7 +21,8 @@ library
 
   Build-Depends:  base >= 3 && <= 5, haskell98, containers, binary,
                   mtl, directory, filepath, utf8-string, array,
-                  bytestring, data-binary-ieee754, binary-state
+                  bytestring, data-binary-ieee754, binary-state,
+                  control-monad-exception
 
   ghc-options: -fwarn-unused-imports
 

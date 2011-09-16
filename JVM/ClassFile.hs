@@ -85,7 +85,7 @@ instance Binary ClassFile where
     classMethodsCount <- get
     classMethods <- replicateM (fromIntegral classMethodsCount) get
     asCount <- get
-    as <- replicateM (fromIntegral $ asCount - 1) get
+    as <- replicateM (fromIntegral $ asCount) get
     return $ ClassFile magic minor major poolsize pool af this super
                interfacesCount ifaces classFieldsCount classFields classMethodsCount classMethods asCount as
 
@@ -137,6 +137,9 @@ getInt = do
              return (c: next)
         else return []
 
+putString :: String -> Put
+putString str = forM_ str put
+
 instance Binary FieldType where
   put SignedByte = put 'B'
   put CharByte   = put 'C'
@@ -146,7 +149,7 @@ instance Binary FieldType where
   put LongInt    = put 'J'
   put ShortInt   = put 'S'
   put BoolType   = put 'Z'
-  put (ObjectType name) = put 'L' >> put name
+  put (ObjectType name) = put 'L' >> putString name >> put ';'
   put (Array Nothing sig) = put '[' >> put sig
   put (Array (Just n) sig) = put '[' >> put (show n) >> put sig
 
@@ -374,5 +377,4 @@ instance Binary AttributeInfo where
     len <- getWord32be
     value <- getLazyByteString (fromIntegral len)
     return $ AttributeInfo name len value
-
 

@@ -3,7 +3,10 @@
 module JVM.Types where
 
 import Codec.Binary.UTF8.String hiding (encode, decode)
+import Control.Applicative
 import Data.Array
+import Data.Binary
+import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
 import Data.Word
 import Data.Char
@@ -21,6 +24,13 @@ toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
 
 -- | Constant pool
 type Pool = Array Word16 Constant
+
+asize :: (Ix i) => Array i e -> Int
+asize = length . elems
+
+showListIx :: (Show a) => [a] -> String
+showListIx list = unlines $ zipWith s [1..] list
+  where s i x = show i ++ ":\t" ++ show x
 
 class HasAttributes a where
   attributes :: a -> Attributes
@@ -56,7 +66,7 @@ deriving instance Eq (Signature a) => Eq (NameType a)
 
 -- | Constant pool item
 data Constant =
-    CClass {className :: B.ByteString}
+    CClass B.ByteString
   | CField {refClass :: B.ByteString, fieldNameType :: NameType Field}
   | CMethod {refClass :: B.ByteString, nameType :: NameType Method}
   | CIfaceMethod {refClass :: B.ByteString, nameType :: NameType Method}
@@ -69,6 +79,10 @@ data Constant =
   | CUTF8 {getString :: B.ByteString}
   | CUnicode {getString :: B.ByteString}
   deriving (Eq)
+
+className ::  Constant -> B.ByteString
+className (CClass s) = s
+className x = error $ "Not a class: " ++ show x
 
 instance Show Constant where
   show (CClass name) = "class " ++ toString name
@@ -138,4 +152,12 @@ data Attribute = Attribute {
 
 -- | Set of attributes
 type Attributes = M.Map B.ByteString B.ByteString
+
+instance (Binary (Signature a)) => Binary (NameType a) where
+  put (NameType n t) = putLazyByteString n >> put t
+
+  get = NameType <$> get <*> get
+
+byteString ::  (Binary t) => t -> B.ByteString
+byteString x = runPut (put x)
 

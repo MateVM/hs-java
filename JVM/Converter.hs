@@ -3,13 +3,15 @@
 -- high-level Java classes, methods etc representation
 module JVM.Converter
   (parseClass, parseClassFile,
-   convertClass,
+   convertClass, classFile,
+   encodeClass,
    methodByName,
    attrByName,
    methodCode
   )
   where
 
+import Control.Monad.Exception
 import Data.List
 import Data.Word
 import Data.Bits
@@ -21,6 +23,7 @@ import qualified Data.Map as M
 
 import JVM.ClassFile
 import JVM.Types
+import JVM.Exceptions
 
 -- | Parse .class file data
 parseClass :: B.ByteString -> Class
@@ -52,13 +55,15 @@ classFile (Class {..}) = ClassFile {
     magic = 0xCAFEBABE,
     minorVersion = 0,
     majorVersion = 50,
-    constsPoolSize = fromIntegral (length poolInfo),
+    constsPoolSize = fromIntegral (length poolInfo + 1),
     constsPool = poolInfo,
     accessFlags = access2word16 classAccess,
-    thisClass = poolIndex poolInfo this,
-    superClass = poolIndex poolInfo this,
+    thisClass = force "this" $ poolClassIndex poolInfo this,
+    superClass = case super of
+                  Just s -> force "super" $ poolClassIndex poolInfo s
+                  Nothing -> 0,
     interfacesCount = fromIntegral (length implements),
-    interfaces = map (poolIndex poolInfo) implements,
+    interfaces = map (force "ifaces" . poolIndex poolInfo) implements,
     classFieldsCount = fromIntegral (length fields),
     classFields = map (fieldInfo poolInfo) fields,
     classMethodsCount = fromIntegral (length methods),
@@ -73,56 +78,80 @@ toCPInfo pool = result
   where
     result = map cpInfo $ elems pool
 
-    cpInfo (CClass name) = CONSTANT_Class (poolIndex result name)
+    cpInfo (CClass name) = CONSTANT_Class (force "class" $ poolIndex result name)
     cpInfo (CField cls name) =
-      CONSTANT_Fieldref (poolIndex result cls) (poolIndex result name)
+      CONSTANT_Fieldref (force "field a" $ poolClassIndex result cls) (force "field b" $ poolNTIndex result name)
     cpInfo (CMethod cls name) =
-      CONSTANT_Methodref (poolIndex result cls) (poolIndex result name)
+      CONSTANT_Methodref (force "method a" $ poolClassIndex result cls) (force ("method b: " ++ show name) $ poolNTIndex result name)
     cpInfo (CIfaceMethod cls name) =
-      CONSTANT_InterfaceMethodref (poolIndex result cls) (poolIndex result name)
-    cpInfo (CString s) = CONSTANT_String (poolIndex result s)
+      CONSTANT_InterfaceMethodref (force "iface method a" $ poolIndex result cls) (force "iface method b" $ poolNTIndex result name)
+    cpInfo (CString s) = CONSTANT_String (force "string" $ poolIndex result s)
     cpInfo (CInteger x) = CONSTANT_Integer x
     cpInfo (CFloat x) = CONSTANT_Float x
     cpInfo (CLong x) = CONSTANT_Long (fromIntegral x)
     cpInfo (CDouble x) = CONSTANT_Double x
     cpInfo (CNameType n t) =
-      CONSTANT_NameAndType (poolIndex result n) (poolIndex result t)
+      CONSTANT_NameAndType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
     cpInfo (CUTF8 s) = CONSTANT_Utf8 (fromIntegral $ B.length s) s
     cpInfo (CUnicode s) = CONSTANT_Unicode (fromIntegral $ B.length s) s
 
-poolIndex :: [CpInfo] -> B.ByteString -> Word16
+-- | Find index of given string in the list of constants
+poolIndex :: (Throws NoItemInPool e) => [CpInfo] -> B.ByteString -> EM e Word16
 poolIndex list name = case findIndex test list of
-                        Nothing -> error $ "Internal error: no such item in pool: " ++ toString name
-                        Just i -> fromIntegral i
+                        Nothing -> throw (NoItemInPool name)
+                        Just i ->  return $ fromIntegral $ i+1
   where
-    test (CUTF8 s)    | s == name = True
-    test (CUnicode s) | s == name = True
-    test _                        = False
+    test (CONSTANT_Utf8 _ s)    | s == name = True
+    test (CONSTANT_Unicode _ s) | s == name = True
+    test _                                  = False
 
+-- | Find index of given string in the list of constants
+poolClassIndex :: (Throws NoItemInPool e) => [CpInfo] -> B.ByteString -> EM e Word16
+poolClassIndex list name = case findIndex checkString list of
+                        Nothing -> throw (NoItemInPool name)
+                        Just i ->  case findIndex (checkClass $ fromIntegral $ i+1) list of
+                                     Nothing -> throw (NoItemInPool $ i+1)
+                                     Just j  -> return $ fromIntegral $ j+1
+  where
+    checkString (CONSTANT_Utf8 _ s)    | s == name = True
+    checkString (CONSTANT_Unicode _ s) | s == name = True
+    checkString _                                  = False
 
+    checkClass i (CONSTANT_Class x) | i == x = True
+    checkClass _ _                           = False
+
+poolNTIndex list x@(NameType n t) = do
+    ni <- poolIndex list n
+    ti <- poolIndex list (byteString t)
+    case findIndex (check ni ti) list of
+      Nothing -> throw (NoItemInPool x)
+      Just i  -> return $ fromIntegral (i+1)
+  where
+    check ni ti (CONSTANT_NameAndType n' t')
+      | (ni == n') && (ti == t') = True
+    check _ _ _                  = False
 
 fieldInfo :: [CpInfo] -> Field -> FieldInfo
 fieldInfo pool (Field {..}) = FieldInfo {
   fieldAccessFlags = access2word16 fieldAccess,
-  fieldNameIndex = poolIndex pool fieldName,
-  fieldSignatureIndex = poolIndex pool (encode fieldSignature),
+  fieldNameIndex = force "field name" $ poolIndex pool fieldName,
+  fieldSignatureIndex = force "signature" $ poolIndex pool (encode fieldSignature),
   fieldAttributesCount = fromIntegral (M.size fieldAttrs),
   fieldAttributes = map (attrInfo pool) (M.assocs fieldAttrs) }
 
 methodInfo :: [CpInfo] -> Method -> MethodInfo
 methodInfo pool (Method {..}) = MethodInfo {
   methodAccessFlags = access2word16 methodAccess,
-  methodNameIndex = poolIndex pool methodName,
-  methodSignatureIndex = poolIndex pool (encode methodSignature),
+  methodNameIndex = force "method name" $ poolIndex pool methodName,
+  methodSignatureIndex = force "method sig" $ poolIndex pool (encode methodSignature),
   methodAttributesCount = fromIntegral (M.size methodAttrs),
   methodAttributes = map (attrInfo pool) (M.assocs methodAttrs) }
 
 attrInfo :: [CpInfo] -> (B.ByteString, B.ByteString) -> AttributeInfo
 attrInfo pool (name, value) = AttributeInfo {
-  attributeName = poolIndex pool name,
+  attributeName = force "attr name" $ poolIndex pool name,
   attributeLength = fromIntegral (B.length value),
   attributeValue = value }
-
 
 constantPoolArray :: [CpInfo] -> Pool
 constantPoolArray list = pool

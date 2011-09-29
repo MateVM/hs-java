@@ -10,6 +10,7 @@ module JVM.Assembler
    Code (..),
    IMM (..),
    CMP (..),
+   encodeInstructions,
    encodeMethod,
    decodeMethod
   )
@@ -705,6 +706,11 @@ instance BinaryState Integer Instruction where
         | inRange (153, 158) c -> return $ IF (toEnum $ fromIntegral $ c-153)
         | inRange (159, 164) c -> IF_ICMP (toEnum $ fromIntegral $ c-159) <$> get
         | otherwise -> fail $ "Unknown instruction byte code: " ++ show c
+
+encodeInstructions :: [Instruction] -> B.ByteString
+encodeInstructions code =
+  let p list = forM_ list put
+  in  encodeWith p (0 :: Integer) code
   
 -- | Decode Java method
 decodeMethod :: B.ByteString -> Code

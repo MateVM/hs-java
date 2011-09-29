@@ -21,6 +21,9 @@ instance IsString B.ByteString where
 toString :: B.ByteString -> String
 toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
 
+toCharList :: B.ByteString -> [Int]
+toCharList bstr = map fromIntegral $ B.unpack bstr
+
 -- | Constant pool
 type Pool = Array Word16 Constant
 

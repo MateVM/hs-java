@@ -17,14 +17,18 @@ data GState = GState {
   generated :: [Instruction],
   currentPool :: Pool Resolved,
   doneMethods :: [Method Resolved],
-  currentMethod :: Maybe (Method Resolved)}
+  currentMethod :: Maybe (Method Resolved),
+  stackSize :: Word16,
+  locals :: Word16 }
   deriving (Eq,Show)
 
 emptyGState = GState {
   generated = [],
   currentPool = M.empty,
   doneMethods = [],
-  currentMethod = Nothing }
+  currentMethod = Nothing,
+  stackSize = 496,
+  locals = 0 }
 
 type Generate a = State GState a
 
@@ -106,10 +110,22 @@ i8 fn c = do
   ix <- addToPool c
   i0 (fn $ fromIntegral ix)
 
+setStackSize :: Word16 -> Generate ()
+setStackSize n = do
+  st <- St.get
+  St.put $ st {stackSize = n}
+
+setMaxLocals :: Word16 -> Generate ()
+setMaxLocals n = do
+  st <- St.get
+  St.put $ st {locals = n}
+
 startMethod :: [AccessFlag] -> B.ByteString -> MethodSignature -> Generate ()
 startMethod flags name sig = do
   addToPool (CString name)
   addSig sig
+  setStackSize 4096
+  setMaxLocals 100
   st <- St.get
   let method = Method {
     methodAccessFlags = S.fromList flags,
@@ -144,8 +160,8 @@ newMethod flags name args ret gen = do
 
 genCode :: GState -> Code
 genCode st = Code {
-    codeStackSize = 4096,
-    codeMaxLocals = 100,
+    codeStackSize = stackSize st,
+    codeMaxLocals = locals st,
     codeLength = len,
     codeInstructions = generated st,
     codeExceptionsN = 0,

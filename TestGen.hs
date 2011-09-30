@@ -13,11 +13,15 @@ import qualified Java.IO
 test :: Generate ()
 test = do
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
+      setStackSize 1
+
       aload_ I0
       invokeSpecial Java.Lang.object Java.Lang.objectInit
       i0 RETURN
 
   hello <- newMethod [ACC_PUBLIC, ACC_STATIC] "hello" [IntType] ReturnsVoid $ do
+      setStackSize 8
+
       getStaticField Java.Lang.system Java.IO.out
       loadString "Здравствуй, мир!"
       invokeVirtual Java.IO.printStream Java.IO.println
@@ -35,6 +39,8 @@ test = do
       i0 RETURN
 
   newMethod [ACC_PUBLIC, ACC_STATIC] "main" [arrayOf Java.Lang.stringClass] ReturnsVoid $ do
+      setStackSize 1
+
       iconst_5
       invokeStatic "Test" hello
       i0 RETURN

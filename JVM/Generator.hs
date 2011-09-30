@@ -40,13 +40,18 @@ appendPool c pool =
 addItem :: Constant -> Generate Word16
 addItem c = do
   pool <- St.gets currentPool
-  case lookupPool c pool of
-    Just i -> return i
-    Nothing -> do
-      let (pool', i) = appendPool c pool
-      st <- St.get
-      St.put $ st {currentPool = pool'}
-      return i
+  if pool ! 0 == CInteger 0
+    then do
+         st <- St.get
+         St.put $ st {currentPool = listArray (0,0) [c]}
+         return 1
+    else case lookupPool c pool of
+          Just i -> return i
+          Nothing -> do
+            let (pool', i) = appendPool c pool
+            st <- St.get
+            St.put $ st {currentPool = pool'}
+            return (i+1)
 
 lookupPool :: Constant -> Pool -> Maybe Word16
 lookupPool c pool =
@@ -55,9 +60,15 @@ lookupPool c pool =
 addNT :: Binary (Signature a) => NameType a -> Generate Word16
 addNT (NameType name sig) = do
   let bsig = encode sig
+  x <- addItem (CNameType name bsig)
   addItem (CUTF8 name)
   addItem (CUTF8 bsig)
-  addItem (CNameType name bsig)
+  return x
+
+addSig :: MethodSignature -> Generate Word16
+addSig c@(MethodSignature args ret) = do
+  let bsig = encode c
+  addItem (CUTF8 bsig)
 
 addToPool :: Constant -> Generate Word16
 addToPool c@(CClass str) = do
@@ -98,11 +109,18 @@ i1 fn c = do
   ix <- addToPool c
   i0 (fn ix)
 
-startMethod :: B.ByteString -> MethodSignature -> Generate ()
-startMethod name sig = do
+i8 :: (Word8 -> Instruction) -> Constant -> Generate ()
+i8 fn c = do
+  ix <- addToPool c
+  i0 (fn $ fromIntegral ix)
+
+startMethod :: [AccessFlag] -> B.ByteString -> MethodSignature -> Generate ()
+startMethod flags name sig = do
+  addToPool (CString name)
+  addSig sig
   st <- St.get
   let method = Method {
-    methodAccess = S.fromList [ACC_PUBLIC],
+    methodAccess = S.fromList flags,
     methodName = name,
     methodSignature = sig,
     methodAttrs = M.empty }
@@ -122,9 +140,9 @@ endMethod = do
                    currentMethod = Nothing,
                    doneMethods = doneMethods st ++ [method']}
 
-newMethod :: B.ByteString -> [ArgumentSignature] -> ReturnSignature -> Generate () -> Generate ()
-newMethod name args ret gen = do
-  startMethod name (MethodSignature args ret)
+newMethod :: [AccessFlag] -> B.ByteString -> [ArgumentSignature] -> ReturnSignature -> Generate () -> Generate ()
+newMethod flags name args ret gen = do
+  startMethod flags name (MethodSignature args ret)
   gen
   endMethod
 
@@ -141,15 +159,24 @@ genCode st = Code {
   where
     len = fromIntegral $ B.length $ encodeInstructions (generated st)
 
+initClass :: B.ByteString -> Generate Word16
+initClass name = do
+  addToPool (CClass "java/lang/Object")
+  addToPool (CClass name)
+  addToPool (CString "Code")
+
 generate :: B.ByteString -> Generate () -> Class
 generate name gen =
-  let res = execState gen emptyGState
+  let generator = do
+        initClass name
+        gen
+      res = execState generator emptyGState
       code = genCode res
   in  Class {
         constantPool = currentPool res,
-        classAccess = S.fromList [ACC_PUBLIC],
+        classAccess = S.fromList [ACC_PUBLIC, ACC_STATIC],
         this = name,
-        super = Nothing,
+        super = Just "java/lang/Object",
         implements = [],
         fields = [],
         methods = doneMethods res,

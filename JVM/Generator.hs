@@ -2,7 +2,6 @@
 module JVM.Generator where
 
 import Control.Monad.State as St
-import Data.Array
 import Data.Word
 import Data.List
 import Data.Binary
@@ -23,7 +22,7 @@ data GState = GState {
 
 emptyGState = GState {
   generated = [],
-  currentPool = listArray (0,0) [CInteger 0],
+  currentPool = M.empty,
   doneMethods = [],
   currentMethod = Nothing }
 
@@ -31,31 +30,24 @@ type Generate a = State GState a
 
 appendPool :: Constant -> Pool -> (Pool, Word16)
 appendPool c pool =
-  let list = assocs pool
-      size = fromIntegral (length list)
-      list' = list ++ [(size, c)]
-  in  (array (0, size) list',
-       size)
+  let size = fromIntegral (M.size pool)
+      pool' = M.insert size c pool
+  in  (pool', size)
 
 addItem :: Constant -> Generate Word16
 addItem c = do
   pool <- St.gets currentPool
-  if pool ! 0 == CInteger 0
-    then do
-         st <- St.get
-         St.put $ st {currentPool = listArray (0,0) [c]}
-         return 1
-    else case lookupPool c pool of
-          Just i -> return i
-          Nothing -> do
-            let (pool', i) = appendPool c pool
-            st <- St.get
-            St.put $ st {currentPool = pool'}
-            return (i+1)
+  case lookupPool c pool of
+    Just i -> return i
+    Nothing -> do
+      let (pool', i) = appendPool c pool
+      st <- St.get
+      St.put $ st {currentPool = pool'}
+      return (i+1)
 
 lookupPool :: Constant -> Pool -> Maybe Word16
 lookupPool c pool =
-  fromIntegral `fmap` findIndex (== c) (elems pool)
+  fromIntegral `fmap` findIndex (== c) (M.elems pool)
 
 addNT :: Binary (Signature a) => NameType a -> Generate Word16
 addNT (NameType name sig) = do

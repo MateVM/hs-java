@@ -18,10 +18,10 @@ module JVM.Assembler
 
 import Control.Monad
 import Control.Applicative
+import Data.Ix (inRange)
 import Data.Word
 import qualified Data.Binary as Binary
 import qualified Data.ByteString.Lazy as B
-import Data.Array
 
 import Data.BinaryState
 import JVM.ClassFile

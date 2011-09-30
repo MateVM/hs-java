@@ -17,7 +17,6 @@ import Data.Word
 import Data.Bits
 import Data.Binary
 import qualified Data.ByteString.Lazy as B
-import Data.Array
 import qualified Data.Set as S
 import qualified Data.Map as M
 
@@ -76,7 +75,7 @@ classFile (Class {..}) = ClassFile {
 toCPInfo :: Pool -> [CpInfo]
 toCPInfo pool = result
   where
-    result = map cpInfo $ elems pool
+    result = map cpInfo $ M.elems pool
 
     cpInfo (CClass name) = CONSTANT_Class (force "class" $ poolIndex result name)
     cpInfo (CField cls name) =
@@ -157,7 +156,7 @@ constantPoolArray :: [CpInfo] -> Pool
 constantPoolArray list = pool
   where
     pool :: Pool
-    pool = listArray (1,n) $ map convert list
+    pool = M.fromList $ zip [1..] $ map convert list
     n = fromIntegral $ length list
 
     convertNameType :: (HasSignature a, Binary (Signature a)) => Word16 -> NameType a

@@ -4,7 +4,6 @@ module JVM.Types where
 
 import Codec.Binary.UTF8.String hiding (encode, decode)
 import Control.Applicative
-import Data.Array
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
@@ -25,10 +24,13 @@ toCharList :: B.ByteString -> [Int]
 toCharList bstr = map fromIntegral $ B.unpack bstr
 
 -- | Constant pool
-type Pool = Array Word16 Constant
+type Pool = M.Map Word16 Constant
 
-asize :: (Ix i) => Array i e -> Int
-asize = length . elems
+poolSize :: Pool -> Int
+poolSize = M.size
+
+(!) :: (Ord k) => M.Map k a -> k -> a
+(!) = (M.!)
 
 showListIx :: (Show a) => [a] -> String
 showListIx list = unlines $ zipWith s [1..] list

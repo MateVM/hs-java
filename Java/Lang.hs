@@ -3,8 +3,8 @@ module Java.Lang where
 
 import Data.String
 
+import JVM.Common ()  -- import instances only
 import JVM.ClassFile
-import JVM.Types
 
 objectClass = ObjectType object
 stringClass = ObjectType string

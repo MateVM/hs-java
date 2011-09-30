@@ -1,9 +1,9 @@
 
-module JVM.Generator.Instructions where
+module JVM.Builder.Instructions where
 
 import JVM.ClassFile
 import JVM.Assembler
-import JVM.Generator
+import JVM.Builder.Monad
 
 nop = i0 NOP
 aconst_null = i0 ACONST_NULL

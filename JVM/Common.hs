@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies, StandaloneDeriving, FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 -- | This module declares `high-level' data types for Java classes, methods etc.
-module JVM.Types where
+module JVM.Common where
 
 import Codec.Binary.UTF8.String hiding (encode, decode)
 import Control.Applicative

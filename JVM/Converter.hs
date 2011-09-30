@@ -73,10 +73,12 @@ classFile (Class {..}) = Class {
     classFields = map (fieldInfo poolInfo) classFields,
     classMethodsCount = fromIntegral (length classMethods),
     classMethods = map (methodInfo poolInfo) classMethods,
-    classAttributesCount = fromIntegral (M.size classAttributes),
-    classAttributes = map (attrInfo poolInfo) (M.assocs classAttributes) }
+    classAttributesCount = fromIntegral $ arsize classAttributes,
+    classAttributes = to (arlist classAttributes) }
   where
     poolInfo = toCPInfo constsPool
+    to :: [(B.ByteString, B.ByteString)] -> Attributes Pointers
+    to pairs = AP (map (attrInfo poolInfo) pairs)
 
 toCPInfo :: Pool Resolved -> Pool Pointers
 toCPInfo pool = result
@@ -98,12 +100,12 @@ toCPInfo pool = result
     cpInfo (CDouble x) = CDouble x
     cpInfo (CNameType n t) =
       CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
-    cpInfo (CUTF8 s) = CUTF8 (fromIntegral $ B.length s) s
-    cpInfo (CUnicode s) = CUnicode (fromIntegral $ B.length s) s
+    cpInfo (CUTF8 s) = CUTF8 s
+    cpInfo (CUnicode s) = CUnicode s
 
 -- | Find index of given string in the list of constants
 poolIndex :: (Throws NoItemInPool e) => Pool Pointers -> B.ByteString -> EM e Word16
-poolIndex list name = case findIndex test list of
+poolIndex list name = case findIndex test (M.elems list) of
                         Nothing -> throw (NoItemInPool name)
                         Just i ->  return $ fromIntegral $ i+1
   where
@@ -113,9 +115,9 @@ poolIndex list name = case findIndex test list of
 
 -- | Find index of given string in the list of constants
 poolClassIndex :: (Throws NoItemInPool e) => Pool Pointers -> B.ByteString -> EM e Word16
-poolClassIndex list name = case findIndex checkString list of
+poolClassIndex list name = case findIndex checkString (M.elems list) of
                         Nothing -> throw (NoItemInPool name)
-                        Just i ->  case findIndex (checkClass $ fromIntegral $ i+1) list of
+                        Just i ->  case findIndex (checkClass $ fromIntegral $ i+1) (M.elems list) of
                                      Nothing -> throw (NoItemInPool $ i+1)
                                      Just j  -> return $ fromIntegral $ j+1
   where
@@ -129,7 +131,7 @@ poolClassIndex list name = case findIndex checkString list of
 poolNTIndex list x@(NameType n t) = do
     ni <- poolIndex list n
     ti <- poolIndex list (byteString t)
-    case findIndex (check ni ti) list of
+    case findIndex (check ni ti) (M.elems list) of
       Nothing -> throw (NoItemInPool x)
       Just i  -> return $ fromIntegral (i+1)
   where
@@ -139,21 +141,27 @@ poolNTIndex list x@(NameType n t) = do
 
 fieldInfo :: Pool Pointers -> Field Resolved -> Field Pointers
 fieldInfo pool (Field {..}) = Field {
-  fieldAccessFlags = access2word16 fieldAccessFlags,
-  fieldName = force "field name" $ poolIndex pool fieldName,
-  fieldSignature = force "signature" $ poolIndex pool (encode fieldSignature),
-  fieldAttributesCount = fromIntegral (M.size fieldAttributes),
-  fieldAttributes = map (attrInfo pool) (M.assocs fieldAttributes) }
+    fieldAccessFlags = access2word16 fieldAccessFlags,
+    fieldName = force "field name" $ poolIndex pool fieldName,
+    fieldSignature = force "signature" $ poolIndex pool (encode fieldSignature),
+    fieldAttributesCount = fromIntegral (arsize fieldAttributes),
+    fieldAttributes = to (arlist fieldAttributes) }
+  where
+    to :: [(B.ByteString, B.ByteString)] -> Attributes Pointers
+    to pairs = AP (map (attrInfo pool) pairs)
 
 methodInfo :: Pool Pointers -> Method Resolved -> Method Pointers
 methodInfo pool (Method {..}) = Method {
-  methodAccessFlags = access2word16 methodAccessFlags,
-  methodName = force "method name" $ poolIndex pool methodName,
-  methodSignature = force "method sig" $ poolIndex pool (encode methodSignature),
-  methodAttributesCount = fromIntegral (M.size methodAttributes),
-  methodAttributes = map (attrInfo pool) (M.assocs methodAttributes) }
+    methodAccessFlags = access2word16 methodAccessFlags,
+    methodName = force "method name" $ poolIndex pool methodName,
+    methodSignature = force "method sig" $ poolIndex pool (encode methodSignature),
+    methodAttributesCount = fromIntegral (arsize methodAttributes),
+    methodAttributes = to (arlist methodAttributes) }
+  where
+    to :: [(B.ByteString, B.ByteString)] -> Attributes Pointers
+    to pairs = AP (map (attrInfo pool) pairs)
 
-attrInfo :: Pool Pointers -> (B.ByteString, B.ByteString) -> Attributes Pointers
+attrInfo :: Pool Pointers -> (B.ByteString, B.ByteString) -> Attribute
 attrInfo pool (name, value) = Attribute {
   attributeName = force "attr name" $ poolIndex pool name,
   attributeLength = fromIntegral (B.length value),
@@ -162,10 +170,10 @@ attrInfo pool (name, value) = Attribute {
 constantPoolArray :: Pool Pointers -> Pool Resolved
 constantPoolArray ps = pool
   where
-    pool :: Pool
+    pool :: Pool Resolved
     pool = M.map convert ps
 
-    n = fromIntegral $ length ps
+    n = fromIntegral $ M.size ps
 
     convertNameType :: (HasSignature a, Binary (Signature a)) => Word16 -> NameType a
     convertNameType i =
@@ -182,8 +190,8 @@ constantPoolArray ps = pool
     convert (CLong x)    = CLong (fromIntegral x)
     convert (CDouble x)  = CDouble x
     convert (CNameType i j) = CNameType (getString $ pool ! i) (getString $ pool ! j)
-    convert (CUTF8 _ bs) = CUTF8 bs
-    convert (CUnicode _ bs) = CUnicode bs
+    convert (CUTF8 bs) = CUTF8 bs
+    convert (CUnicode bs) = CUnicode bs
 
 convertAccess :: AccessFlags Pointers -> AccessFlags Resolved
 convertAccess w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
@@ -210,6 +218,7 @@ convertField pool (Field {..}) = Field {
   fieldAccessFlags = convertAccess fieldAccessFlags,
   fieldName = getString $ pool ! fieldName,
   fieldSignature = decode $ getString $ pool ! fieldSignature,
+  fieldAttributesCount = fromIntegral (apsize fieldAttributes),
   fieldAttributes = convertAttrs pool fieldAttributes }
 
 convertMethod :: Pool Resolved -> Method Pointers -> Method Resolved
@@ -217,11 +226,13 @@ convertMethod pool (Method {..}) = Method {
   methodAccessFlags = convertAccess methodAccessFlags,
   methodName = getString $ pool ! methodName,
   methodSignature = decode $ getString $ pool ! methodSignature,
+  methodAttributesCount = fromIntegral (apsize methodAttributes),
   methodAttributes = convertAttrs pool methodAttributes }
 
 convertAttrs :: Pool Resolved -> Attributes Pointers -> Attributes Resolved
-convertAttrs pool attrs = M.fromList $ map go attrs
+convertAttrs pool (AP attrs) = AR (M.fromList $ map go attrs)
   where
+    go :: Attribute -> (B.ByteString, B.ByteString)
     go (Attribute {..}) = (getString $ pool ! attributeName,
                            attributeValue)
 
@@ -232,7 +243,9 @@ methodByName cls name =
 
 -- | Try to get object attribute by name
 attrByName :: (HasAttributes a) => a Resolved -> B.ByteString -> Maybe B.ByteString
-attrByName x name = M.lookup name (attributes x)
+attrByName x name =
+  let (AR m) = attributes x
+  in  M.lookup name m
 
 -- | Try to get Code for class method (no Code for interface methods)
 methodCode :: Class Resolved

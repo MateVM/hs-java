@@ -15,9 +15,9 @@ import JVM.Assembler
 
 data GState = GState {
   generated :: [Instruction],
-  currentPool :: Pool,
-  doneMethods :: [Method],
-  currentMethod :: Maybe Method}
+  currentPool :: Pool Resolved,
+  doneMethods :: [Method Resolved],
+  currentMethod :: Maybe (Method Resolved)}
   deriving (Eq,Show)
 
 emptyGState = GState {
@@ -28,13 +28,13 @@ emptyGState = GState {
 
 type Generate a = State GState a
 
-appendPool :: Constant -> Pool -> (Pool, Word16)
+appendPool :: Constant Resolved -> Pool Resolved -> (Pool Resolved, Word16)
 appendPool c pool =
   let size = fromIntegral (M.size pool)
       pool' = M.insert size c pool
   in  (pool', size)
 
-addItem :: Constant -> Generate Word16
+addItem :: Constant Resolved -> Generate Word16
 addItem c = do
   pool <- St.gets currentPool
   case lookupPool c pool of
@@ -45,7 +45,7 @@ addItem c = do
       St.put $ st {currentPool = pool'}
       return (i+1)
 
-lookupPool :: Constant -> Pool -> Maybe Word16
+lookupPool :: Constant Resolved -> Pool Resolved -> Maybe Word16
 lookupPool c pool =
   fromIntegral `fmap` findIndex (== c) (M.elems pool)
 
@@ -62,7 +62,7 @@ addSig c@(MethodSignature args ret) = do
   let bsig = encode c
   addItem (CUTF8 bsig)
 
-addToPool :: Constant -> Generate Word16
+addToPool :: Constant Resolved -> Generate Word16
 addToPool c@(CClass str) = do
   addItem (CUTF8 str)
   addItem c
@@ -96,12 +96,12 @@ putInstruction instr = do
 i0 :: Instruction -> Generate ()
 i0 = putInstruction
 
-i1 :: (Word16 -> Instruction) -> Constant -> Generate ()
+i1 :: (Word16 -> Instruction) -> Constant Resolved -> Generate ()
 i1 fn c = do
   ix <- addToPool c
   i0 (fn ix)
 
-i8 :: (Word8 -> Instruction) -> Constant -> Generate ()
+i8 :: (Word8 -> Instruction) -> Constant Resolved -> Generate ()
 i8 fn c = do
   ix <- addToPool c
   i0 (fn $ fromIntegral ix)
@@ -112,10 +112,11 @@ startMethod flags name sig = do
   addSig sig
   st <- St.get
   let method = Method {
-    methodAccess = S.fromList flags,
+    methodAccessFlags = S.fromList flags,
     methodName = name,
     methodSignature = sig,
-    methodAttrs = M.empty }
+    methodAttributesCount = 0,
+    methodAttributes = AR M.empty }
   St.put $ st {generated = [],
                currentMethod = Just method }
 
@@ -126,7 +127,8 @@ endMethod = do
   case m of
     Nothing -> fail "endMethod without startMethod!"
     Just method -> do
-      let method' = method {methodAttrs = M.fromList [("Code", encodeMethod code)] }
+      let method' = method {methodAttributes = AR $ M.fromList [("Code", encodeMethod code)],
+                            methodAttributesCount = 1}
       st <- St.get
       St.put $ st {generated = [],
                    currentMethod = Nothing,
@@ -147,7 +149,7 @@ genCode st = Code {
     codeExceptionsN = 0,
     codeExceptions = [],
     codeAttrsN = 0,
-    codeAttributes = [] }
+    codeAttributes = AP [] }
   where
     len = fromIntegral $ B.length $ encodeInstructions (generated st)
 
@@ -157,7 +159,7 @@ initClass name = do
   addToPool (CClass name)
   addToPool (CString "Code")
 
-generate :: B.ByteString -> Generate () -> Class
+generate :: B.ByteString -> Generate () -> Class Resolved
 generate name gen =
   let generator = do
         initClass name
@@ -165,12 +167,20 @@ generate name gen =
       res = execState generator emptyGState
       code = genCode res
   in  Class {
-        constantPool = currentPool res,
-        classAccess = S.fromList [ACC_PUBLIC, ACC_STATIC],
-        this = name,
-        super = Just "java/lang/Object",
-        implements = [],
-        fields = [],
-        methods = doneMethods res,
-        classAttrs = M.empty }
+        magic = 0xCAFEBABE,
+        minorVersion = 0,
+        majorVersion = 50,
+        constsPoolSize = fromIntegral $ M.size (currentPool res),
+        constsPool = currentPool res,
+        accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],
+        thisClass = name,
+        superClass = "java/lang/Object",
+        interfacesCount = 0,
+        interfaces = [],
+        classFieldsCount = 0,
+        classFields = [],
+        classMethodsCount = fromIntegral $ length (doneMethods res),
+        classMethods = doneMethods res,
+        classAttributesCount = 0,
+        classAttributes = AR M.empty }
 

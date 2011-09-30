@@ -7,18 +7,19 @@ import qualified Data.ByteString.Lazy as B
 import Text.Printf
 
 import JVM.Types
+import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
 
-dumpClass :: Class -> IO ()
+dumpClass :: Class Resolved -> IO ()
 dumpClass cls = do
     putStr "Class: "
-    B.putStrLn (this cls)
+    B.putStrLn (thisClass cls)
     putStrLn "Constants pool:"
-    forM_ (M.assocs $ constantPool cls) $ \(i, c) ->
+    forM_ (M.assocs $ constsPool cls) $ \(i, c) ->
       putStrLn $ printf "  #%d:\t%s" i (show c)
     putStrLn "Methods:"
-    forM_ (methods cls) $ \m -> do
+    forM_ (classMethods cls) $ \m -> do
       putStr ">> Method "
       B.putStr (methodName m)
       print (methodSignature m)

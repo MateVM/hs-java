@@ -53,7 +53,7 @@ data Code = Code {
     codeExceptionsN :: Word16,
     codeExceptions :: [CodeException],
     codeAttrsN :: Word16,
-    codeAttributes :: [AttributeInfo] }
+    codeAttributes :: Attributes Pointers }
   deriving (Eq, Show)
 
 -- | Exception descriptor
@@ -73,7 +73,7 @@ instance BinaryState Integer CodeException where
 
   get = CodeException <$> get <*> get <*> get <*> get
 
-instance BinaryState Integer AttributeInfo where
+instance BinaryState Integer Attribute where
   put a = do
     let sz = 6 + attributeLength a      -- full size of AttributeInfo structure
     liftOffset (fromIntegral sz) Binary.put a
@@ -89,7 +89,7 @@ instance BinaryState Integer Code where
     put codeExceptionsN
     forM_ codeExceptions put
     put codeAttrsN
-    forM_ codeAttributes put
+    forM_ (attributesList codeAttributes) put
 
   get = do
     stackSz <- get
@@ -102,7 +102,7 @@ instance BinaryState Integer Code where
     excs <- replicateM (fromIntegral excn) get
     nAttrs <- get
     attrs <- replicateM (fromIntegral nAttrs) get
-    return $ Code stackSz locals len code excn excs nAttrs attrs
+    return $ Code stackSz locals len code excn excs nAttrs (AP attrs)
 
 -- | Read sequence of instructions (to end of stream)
 readInstructions :: GetState Integer [Instruction]

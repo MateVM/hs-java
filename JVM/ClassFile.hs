@@ -14,7 +14,8 @@ module JVM.ClassFile
    HasSignature (..), HasAttributes (..),
    AccessFlag (..), AccessFlags,
    Attributes (..),
-   className
+   className,
+   apsize, arsize, arlist
   )
   where
 
@@ -56,10 +57,21 @@ type instance AccessFlags Pointers = Word16
 
 type instance AccessFlags Resolved = S.Set AccessFlag
 
-type family Attributes stage
+data family Attributes stage
 
-type instance Attributes Pointers = [Attribute]
-type instance Attributes Resolved = M.Map B.ByteString B.ByteString
+data instance Attributes Pointers = AP {attributesList :: [Attribute]}
+  deriving (Eq, Show)
+data instance Attributes Resolved = AR (M.Map B.ByteString B.ByteString)
+  deriving (Eq, Show)
+
+arsize :: Attributes Resolved -> Int
+arsize (AR m) = M.size m
+
+arlist :: Attributes Resolved -> [(B.ByteString, B.ByteString)]
+arlist (AR m) = M.assocs m
+
+apsize :: Attributes Pointers -> Int
+apsize (AP list) = length list
 
 -- | Access flags. Used for classess, methods, variables.
 data AccessFlag =
@@ -102,7 +114,7 @@ instance (Binary (Signature a)) => Binary (NameType a) where
 
 -- | Constant pool item
 data Constant stage =
-    CClass B.ByteString
+    CClass (Link stage B.ByteString)
   | CField {refClass :: Link stage B.ByteString, fieldNameType :: Link stage (NameType Field)}
   | CMethod {refClass :: Link stage B.ByteString, nameType :: Link stage (NameType Method)}
   | CIfaceMethod {refClass :: Link stage B.ByteString, nameType :: Link stage (NameType Method)}
@@ -177,7 +189,7 @@ instance Binary (Class Pointers) where
     put classMethodsCount
     forM_ classMethods put
     put classAttributesCount
-    forM_ classAttributes put
+    forM_ (attributesList classAttributes) put
 
   get = do
     magic <- get
@@ -198,7 +210,8 @@ instance Binary (Class Pointers) where
     as <- replicateM (fromIntegral $ asCount) get
     let pool' = M.fromList $ zip [1..] pool
     return $ Class magic minor major poolsize pool' af this super
-               interfacesCount ifaces classFieldsCount classFields classMethodsCount classMethods asCount as
+               interfacesCount ifaces classFieldsCount classFields
+               classMethodsCount classMethods asCount (AP as)
 
 -- | Field signature format
 data FieldType =
@@ -426,7 +439,7 @@ instance Binary (Field Pointers) where
     put fieldName
     put fieldSignature
     put fieldAttributesCount
-    forM_ fieldAttributes put
+    forM_ (attributesList fieldAttributes) put
 
   get = do
     af <- get
@@ -434,11 +447,11 @@ instance Binary (Field Pointers) where
     si <- get
     n <- get
     as <- replicateM (fromIntegral n) get
-    return $ Field af ni si n as
+    return $ Field af ni si n (AP as)
 
 -- | Class method format
 data Method stage = Method {
-  methodAccessFlags :: Attributes stage,
+  methodAccessFlags :: AccessFlags stage,
   methodName :: Link stage B.ByteString,
   methodSignature :: Link stage MethodSignature,
   methodAttributesCount :: Word16,
@@ -455,7 +468,7 @@ instance Binary (Method Pointers) where
     put methodName
     put methodSignature
     put methodAttributesCount 
-    forM_ methodAttributes put
+    forM_ (attributesList methodAttributes) put
 
   get = do
     offset <- bytesRead
@@ -464,7 +477,12 @@ instance Binary (Method Pointers) where
     si <- get
     n <- get
     as <- replicateM (fromIntegral n) get
-    return $ Method af ni si n as
+    return $ Method {
+               methodAccessFlags = af,
+               methodName = ni,
+               methodSignature = si,
+               methodAttributesCount = n,
+               methodAttributes = AP as }
 
 -- | Any (class/ field/ method/ ...) attribute format.
 -- Some formats specify special formats for @attributeValue@.

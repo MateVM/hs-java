@@ -10,6 +10,7 @@ module JVM.Assembler
    Code (..),
    IMM (..),
    CMP (..),
+   atype2byte,
    encodeInstructions,
    encodeMethod,
    decodeMethod

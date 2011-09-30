@@ -7,7 +7,7 @@ import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
 import JVM.Generator
-import JVM.Dump
+import JVM.Generator.Instructions
 
 initNT :: NameType Method
 initNT = NameType "<init>" $ MethodSignature [] ReturnsVoid
@@ -31,30 +31,30 @@ printfNT = NameType "printf" $ MethodSignature [ObjectType "java/lang/String",
 test :: Generate ()
 test = do
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
-      i0 $ ALOAD_ I0
-      i1 INVOKESPECIAL (CMethod "java/lang/Object" initNT)
+      aload_ I0
+      invokeSpecial "java/lang/Object" initNT
       i0 RETURN
 
   newMethod [ACC_PUBLIC, ACC_STATIC] "main" [Array Nothing $ ObjectType "java/lang/String"] ReturnsVoid $ do
-      i0 ICONST_5
-      i1 INVOKESTATIC (CMethod "Test" helloNT)
+      iconst_5
+      invokeStatic "Test" helloNT
       i0 RETURN
 
   newMethod [ACC_PUBLIC, ACC_STATIC] "hello" [IntType] ReturnsVoid $ do
-      i1 GETSTATIC (CField "java/lang/System" outNT)
-      i8 LDC1 (CString "Здравствуй, мир!")
-      i1 INVOKEVIRTUAL (CMethod "java/io/PrintStream" printlnNT)
-      i1 GETSTATIC (CField "java/lang/System" outNT)
-      i8 LDC1 (CString "Argument: %d\n")
-      i0 ICONST_1
-      i1 ANEWARRAY (CClass "java/lang/Object")
-      i0 DUP
-      i0 ICONST_0
-      i0 (ILOAD_ I0)
-      i1 INVOKESTATIC (CMethod "java/lang/Integer" valueOfNT)
-      i0 AASTORE
-      i1 INVOKEVIRTUAL (CMethod "java/io/PrintStream" printfNT)
-      i0 POP
+      getStaticField "java/lang/System" outNT
+      loadString "Здравствуй, мир!"
+      invokeVirtual "java/io/PrintStream" printlnNT
+      getStaticField "java/lang/System" outNT
+      loadString "Argument: %d\n"
+      iconst_1
+      allocArray "java/lang/Object"
+      dup
+      iconst_0
+      iload_ I0
+      invokeStatic "java/lang/Integer" valueOfNT
+      aastore
+      invokeVirtual "java/io/PrintStream" printfNT
+      pop
       i0 RETURN
 
 testClass = generate "Test" test

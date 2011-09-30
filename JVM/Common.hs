@@ -3,13 +3,11 @@
 module JVM.Common where
 
 import Codec.Binary.UTF8.String hiding (encode, decode)
-import Control.Applicative
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
 import Data.Char
 import Data.String
-import qualified Data.Set as S
 import qualified Data.Map as M
 
 import JVM.ClassFile

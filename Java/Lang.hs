@@ -26,3 +26,6 @@ system = "java/lang/System"
 objectInit :: NameType Method
 objectInit = NameType "<init>" $ MethodSignature [] ReturnsVoid
 
+valueOfInteger :: NameType Method
+valueOfInteger = NameType "valueOf" $ MethodSignature [IntType] (Returns Java.Lang.integerClass)
+

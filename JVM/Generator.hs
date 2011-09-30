@@ -134,11 +134,13 @@ endMethod = do
                    currentMethod = Nothing,
                    doneMethods = doneMethods st ++ [method']}
 
-newMethod :: [AccessFlag] -> B.ByteString -> [ArgumentSignature] -> ReturnSignature -> Generate () -> Generate ()
+newMethod :: [AccessFlag] -> B.ByteString -> [ArgumentSignature] -> ReturnSignature -> Generate () -> Generate (NameType Method)
 newMethod flags name args ret gen = do
-  startMethod flags name (MethodSignature args ret)
+  let sig = MethodSignature args ret
+  startMethod flags name sig
   gen
   endMethod
+  return (NameType name sig)
 
 genCode :: GState -> Code
 genCode st = Code {

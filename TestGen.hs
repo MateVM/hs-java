@@ -15,9 +15,6 @@ import qualified Java.IO
 hello :: NameType Method
 hello = NameType "hello" $ MethodSignature [IntType] ReturnsVoid
 
-valueOf :: NameType Method
-valueOf = NameType "valueOf" $ MethodSignature [IntType] (Returns Java.Lang.integerClass)
-
 test :: Generate ()
 test = do
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
@@ -25,12 +22,7 @@ test = do
       invokeSpecial Java.Lang.object Java.Lang.objectInit
       i0 RETURN
 
-  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [Array Nothing Java.Lang.stringClass] ReturnsVoid $ do
-      iconst_5
-      invokeStatic "Test" hello
-      i0 RETURN
-
-  newMethod [ACC_PUBLIC, ACC_STATIC] "hello" [IntType] ReturnsVoid $ do
+  hello <- newMethod [ACC_PUBLIC, ACC_STATIC] "hello" [IntType] ReturnsVoid $ do
       getStaticField Java.Lang.system Java.IO.out
       loadString "Здравствуй, мир!"
       invokeVirtual Java.IO.printStream Java.IO.println
@@ -41,11 +33,18 @@ test = do
       dup
       iconst_0
       iload_ I0
-      invokeStatic Java.Lang.integer valueOf
+      invokeStatic Java.Lang.integer Java.Lang.valueOfInteger
       aastore
       invokeVirtual Java.IO.printStream Java.IO.printf
       pop
       i0 RETURN
+
+  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [Array Nothing Java.Lang.stringClass] ReturnsVoid $ do
+      iconst_5
+      invokeStatic "Test" hello
+      i0 RETURN
+
+  return ()
 
 testClass = generate "Test" test
 

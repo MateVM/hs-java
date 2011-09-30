@@ -38,7 +38,7 @@ addItem :: Constant -> Generate Word16
 addItem c = do
   pool <- St.gets currentPool
   case lookupPool c pool of
-    Just i -> return i
+    Just i -> return (i+1)
     Nothing -> do
       let (pool', i) = appendPool c pool
       st <- St.get

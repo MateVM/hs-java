@@ -10,9 +10,6 @@ import JVM.Builder
 import qualified Java.Lang
 import qualified Java.IO
 
-hello :: NameType Method
-hello = NameType "hello" $ MethodSignature [IntType] ReturnsVoid
-
 test :: Generate ()
 test = do
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
@@ -37,13 +34,14 @@ test = do
       pop
       i0 RETURN
 
-  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [Array Nothing Java.Lang.stringClass] ReturnsVoid $ do
+  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [arrayOf Java.Lang.stringClass] ReturnsVoid $ do
       iconst_5
       invokeStatic "Test" hello
       i0 RETURN
 
   return ()
 
+testClass ::  Class Resolved
 testClass = generate "Test" test
 
 main = do

@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 import Text.Printf
 
-import JVM.Common
+import JVM.Common ()
 import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler

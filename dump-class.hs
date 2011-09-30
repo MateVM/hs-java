@@ -1,12 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Control.Monad
-import Data.Array
 import Data.Binary
 import System.Environment
-import qualified Data.ByteString.Lazy as B
-import Text.Printf
 import qualified Data.Map as M
 
 import JVM.Common

@@ -1,17 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Control.Monad
-import Data.Array
 import Data.Binary
 import System.Environment
 import qualified Data.ByteString.Lazy as B
-import Text.Printf
 import qualified Data.Map as M
 
-import JVM.Types
+import JVM.Common
 import JVM.ClassFile
 import JVM.Converter
-import JVM.Assembler
 import JVM.Dump
 
 main = do

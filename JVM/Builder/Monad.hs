@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, TypeFamilies, OverloadedStrings #-}
-module JVM.Generator where
+module JVM.Builder.Monad where
 
 import Control.Monad.State as St
 import Data.Word
@@ -9,7 +9,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.ByteString.Lazy as B
 
-import JVM.Types
+import JVM.Common ()  -- import instances only
 import JVM.ClassFile
 import JVM.Assembler
 

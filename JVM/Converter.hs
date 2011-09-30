@@ -21,7 +21,7 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 
 import JVM.ClassFile
-import JVM.Types
+import JVM.Common
 import JVM.Exceptions
 
 -- | Parse .class file data

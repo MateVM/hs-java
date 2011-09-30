@@ -2,12 +2,10 @@
 
 import qualified Data.ByteString.Lazy as B
 
-import JVM.Types
 import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
-import JVM.Generator
-import JVM.Generator.Instructions
+import JVM.Builder
 
 import qualified Java.Lang
 import qualified Java.IO

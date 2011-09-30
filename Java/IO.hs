@@ -3,8 +3,8 @@ module Java.IO where
 
 import Data.String
 
+import JVM.Common ()  -- import instances only
 import JVM.ClassFile
-import JVM.Types
 
 import qualified Java.Lang
 

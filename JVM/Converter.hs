@@ -25,98 +25,105 @@ import JVM.Types
 import JVM.Exceptions
 
 -- | Parse .class file data
-parseClass :: B.ByteString -> Class
+parseClass :: B.ByteString -> Class Resolved
 parseClass bstr = convertClass $ decode bstr
 
 -- | Parse class data from file
-parseClassFile :: FilePath -> IO Class
+parseClassFile :: FilePath -> IO (Class Resolved)
 parseClassFile path = convertClass `fmap` decodeFile path
 
-encodeClass :: Class -> B.ByteString
+encodeClass :: (Class Resolved) -> B.ByteString
 encodeClass cls = encode $ classFile cls
 
-convertClass :: ClassFile -> Class
-convertClass (ClassFile {..}) =
+convertClass :: Class Pointers -> Class Resolved
+convertClass (Class {..}) =
   let pool = constantPoolArray constsPool
       superName = className $ pool ! superClass
   in Class {
-      constantPool = pool,
-      classAccess = convertAccess accessFlags,
-      this = className $ pool ! thisClass,
-      super = if superClass == 0 then Nothing else Just superName,
-      implements = map (\i -> className $ pool ! i) interfaces,
-      fields = map (convertField pool) classFields,
-      methods = map (convertMethod pool) classMethods,
-      classAttrs = convertAttrs pool classAttributes }
+      magic = 0xCAFEBABE,
+      minorVersion = 0,
+      majorVersion = 50,
+      constsPoolSize = fromIntegral (M.size pool),
+      constsPool = pool,
+      accessFlags = convertAccess accessFlags,
+      thisClass = className $ pool ! thisClass,
+      superClass = if superClass == 0 then "" else superName,
+      interfacesCount = interfacesCount,
+      interfaces = map (\i -> className $ pool ! i) interfaces,
+      classFieldsCount = classFieldsCount,
+      classFields = map (convertField pool) classFields,
+      classMethodsCount = classMethodsCount,
+      classMethods = map (convertMethod pool) classMethods,
+      classAttributesCount = classAttributesCount,
+      classAttributes = convertAttrs pool classAttributes }
 
-classFile :: Class -> ClassFile
-classFile (Class {..}) = ClassFile {
+classFile :: Class Resolved -> Class Pointers
+classFile (Class {..}) = Class {
     magic = 0xCAFEBABE,
     minorVersion = 0,
     majorVersion = 50,
-    constsPoolSize = fromIntegral (length poolInfo + 1),
+    constsPoolSize = fromIntegral (M.size poolInfo + 1),
     constsPool = poolInfo,
-    accessFlags = access2word16 classAccess,
-    thisClass = force "this" $ poolClassIndex poolInfo this,
-    superClass = case super of
-                  Just s -> force "super" $ poolClassIndex poolInfo s
-                  Nothing -> 0,
-    interfacesCount = fromIntegral (length implements),
-    interfaces = map (force "ifaces" . poolIndex poolInfo) implements,
-    classFieldsCount = fromIntegral (length fields),
-    classFields = map (fieldInfo poolInfo) fields,
-    classMethodsCount = fromIntegral (length methods),
-    classMethods = map (methodInfo poolInfo) methods,
-    classAttributesCount = fromIntegral (M.size classAttrs),
-    classAttributes = map (attrInfo poolInfo) (M.assocs classAttrs) }
+    accessFlags = access2word16 accessFlags,
+    thisClass = force "this" $ poolClassIndex poolInfo thisClass,
+    superClass = force "super" $ poolClassIndex poolInfo superClass,
+    interfacesCount = fromIntegral (length interfaces),
+    interfaces = map (force "ifaces" . poolIndex poolInfo) interfaces,
+    classFieldsCount = fromIntegral (length classFields),
+    classFields = map (fieldInfo poolInfo) classFields,
+    classMethodsCount = fromIntegral (length classMethods),
+    classMethods = map (methodInfo poolInfo) classMethods,
+    classAttributesCount = fromIntegral (M.size classAttributes),
+    classAttributes = map (attrInfo poolInfo) (M.assocs classAttributes) }
   where
-    poolInfo = toCPInfo constantPool
+    poolInfo = toCPInfo constsPool
 
-toCPInfo :: Pool -> [CpInfo]
+toCPInfo :: Pool Resolved -> Pool Pointers
 toCPInfo pool = result
   where
-    result = map cpInfo $ M.elems pool
+    result = M.map cpInfo pool
 
-    cpInfo (CClass name) = CONSTANT_Class (force "class" $ poolIndex result name)
+    cpInfo :: Constant Resolved -> Constant Pointers
+    cpInfo (CClass name) = CClass (force "class" $ poolIndex result name)
     cpInfo (CField cls name) =
-      CONSTANT_Fieldref (force "field a" $ poolClassIndex result cls) (force "field b" $ poolNTIndex result name)
+      CField (force "field a" $ poolClassIndex result cls) (force "field b" $ poolNTIndex result name)
     cpInfo (CMethod cls name) =
-      CONSTANT_Methodref (force "method a" $ poolClassIndex result cls) (force ("method b: " ++ show name) $ poolNTIndex result name)
+      CMethod (force "method a" $ poolClassIndex result cls) (force ("method b: " ++ show name) $ poolNTIndex result name)
     cpInfo (CIfaceMethod cls name) =
-      CONSTANT_InterfaceMethodref (force "iface method a" $ poolIndex result cls) (force "iface method b" $ poolNTIndex result name)
-    cpInfo (CString s) = CONSTANT_String (force "string" $ poolIndex result s)
-    cpInfo (CInteger x) = CONSTANT_Integer x
-    cpInfo (CFloat x) = CONSTANT_Float x
-    cpInfo (CLong x) = CONSTANT_Long (fromIntegral x)
-    cpInfo (CDouble x) = CONSTANT_Double x
+      CIfaceMethod (force "iface method a" $ poolIndex result cls) (force "iface method b" $ poolNTIndex result name)
+    cpInfo (CString s) = CString (force "string" $ poolIndex result s)
+    cpInfo (CInteger x) = CInteger x
+    cpInfo (CFloat x) = CFloat x
+    cpInfo (CLong x) = CLong (fromIntegral x)
+    cpInfo (CDouble x) = CDouble x
     cpInfo (CNameType n t) =
-      CONSTANT_NameAndType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
-    cpInfo (CUTF8 s) = CONSTANT_Utf8 (fromIntegral $ B.length s) s
-    cpInfo (CUnicode s) = CONSTANT_Unicode (fromIntegral $ B.length s) s
+      CNameType (force "name" $ poolIndex result n) (force "type" $ poolIndex result t)
+    cpInfo (CUTF8 s) = CUTF8 (fromIntegral $ B.length s) s
+    cpInfo (CUnicode s) = CUnicode (fromIntegral $ B.length s) s
 
 -- | Find index of given string in the list of constants
-poolIndex :: (Throws NoItemInPool e) => [CpInfo] -> B.ByteString -> EM e Word16
+poolIndex :: (Throws NoItemInPool e) => Pool Pointers -> B.ByteString -> EM e Word16
 poolIndex list name = case findIndex test list of
                         Nothing -> throw (NoItemInPool name)
                         Just i ->  return $ fromIntegral $ i+1
   where
-    test (CONSTANT_Utf8 _ s)    | s == name = True
-    test (CONSTANT_Unicode _ s) | s == name = True
+    test (CUTF8 s)    | s == name = True
+    test (CUnicode s) | s == name = True
     test _                                  = False
 
 -- | Find index of given string in the list of constants
-poolClassIndex :: (Throws NoItemInPool e) => [CpInfo] -> B.ByteString -> EM e Word16
+poolClassIndex :: (Throws NoItemInPool e) => Pool Pointers -> B.ByteString -> EM e Word16
 poolClassIndex list name = case findIndex checkString list of
                         Nothing -> throw (NoItemInPool name)
                         Just i ->  case findIndex (checkClass $ fromIntegral $ i+1) list of
                                      Nothing -> throw (NoItemInPool $ i+1)
                                      Just j  -> return $ fromIntegral $ j+1
   where
-    checkString (CONSTANT_Utf8 _ s)    | s == name = True
-    checkString (CONSTANT_Unicode _ s) | s == name = True
+    checkString (CUTF8 s)    | s == name = True
+    checkString (CUnicode s) | s == name = True
     checkString _                                  = False
 
-    checkClass i (CONSTANT_Class x) | i == x = True
+    checkClass i (CClass x) | i == x = True
     checkClass _ _                           = False
 
 poolNTIndex list x@(NameType n t) = do
@@ -126,58 +133,59 @@ poolNTIndex list x@(NameType n t) = do
       Nothing -> throw (NoItemInPool x)
       Just i  -> return $ fromIntegral (i+1)
   where
-    check ni ti (CONSTANT_NameAndType n' t')
+    check ni ti (CNameType n' t')
       | (ni == n') && (ti == t') = True
     check _ _ _                  = False
 
-fieldInfo :: [CpInfo] -> Field -> FieldInfo
-fieldInfo pool (Field {..}) = FieldInfo {
-  fieldAccessFlags = access2word16 fieldAccess,
-  fieldNameIndex = force "field name" $ poolIndex pool fieldName,
-  fieldSignatureIndex = force "signature" $ poolIndex pool (encode fieldSignature),
-  fieldAttributesCount = fromIntegral (M.size fieldAttrs),
-  fieldAttributes = map (attrInfo pool) (M.assocs fieldAttrs) }
+fieldInfo :: Pool Pointers -> Field Resolved -> Field Pointers
+fieldInfo pool (Field {..}) = Field {
+  fieldAccessFlags = access2word16 fieldAccessFlags,
+  fieldName = force "field name" $ poolIndex pool fieldName,
+  fieldSignature = force "signature" $ poolIndex pool (encode fieldSignature),
+  fieldAttributesCount = fromIntegral (M.size fieldAttributes),
+  fieldAttributes = map (attrInfo pool) (M.assocs fieldAttributes) }
 
-methodInfo :: [CpInfo] -> Method -> MethodInfo
-methodInfo pool (Method {..}) = MethodInfo {
-  methodAccessFlags = access2word16 methodAccess,
-  methodNameIndex = force "method name" $ poolIndex pool methodName,
-  methodSignatureIndex = force "method sig" $ poolIndex pool (encode methodSignature),
-  methodAttributesCount = fromIntegral (M.size methodAttrs),
-  methodAttributes = map (attrInfo pool) (M.assocs methodAttrs) }
+methodInfo :: Pool Pointers -> Method Resolved -> Method Pointers
+methodInfo pool (Method {..}) = Method {
+  methodAccessFlags = access2word16 methodAccessFlags,
+  methodName = force "method name" $ poolIndex pool methodName,
+  methodSignature = force "method sig" $ poolIndex pool (encode methodSignature),
+  methodAttributesCount = fromIntegral (M.size methodAttributes),
+  methodAttributes = map (attrInfo pool) (M.assocs methodAttributes) }
 
-attrInfo :: [CpInfo] -> (B.ByteString, B.ByteString) -> AttributeInfo
-attrInfo pool (name, value) = AttributeInfo {
+attrInfo :: Pool Pointers -> (B.ByteString, B.ByteString) -> Attributes Pointers
+attrInfo pool (name, value) = Attribute {
   attributeName = force "attr name" $ poolIndex pool name,
   attributeLength = fromIntegral (B.length value),
   attributeValue = value }
 
-constantPoolArray :: [CpInfo] -> Pool
-constantPoolArray list = pool
+constantPoolArray :: Pool Pointers -> Pool Resolved
+constantPoolArray ps = pool
   where
     pool :: Pool
-    pool = M.fromList $ zip [1..] $ map convert list
-    n = fromIntegral $ length list
+    pool = M.map convert ps
+
+    n = fromIntegral $ length ps
 
     convertNameType :: (HasSignature a, Binary (Signature a)) => Word16 -> NameType a
     convertNameType i =
       let (CNameType n s) = pool ! i
       in  NameType n (decode s)
 
-    convert (CONSTANT_Class i) = CClass $ getString $ pool ! i
-    convert (CONSTANT_Fieldref i j) = CField (className $ pool ! i) (convertNameType j)
-    convert (CONSTANT_Methodref i j) = CMethod (className $ pool ! i) (convertNameType j)
-    convert (CONSTANT_InterfaceMethodref i j) = CIfaceMethod (className $ pool ! i) (convertNameType j)
-    convert (CONSTANT_String i) = CString $ getString $ pool ! i
-    convert (CONSTANT_Integer x) = CInteger x
-    convert (CONSTANT_Float x)   = CFloat x
-    convert (CONSTANT_Long x)    = CLong (fromIntegral x)
-    convert (CONSTANT_Double x)  = CDouble x
-    convert (CONSTANT_NameAndType i j) = CNameType (getString $ pool ! i) (getString $ pool ! j)
-    convert (CONSTANT_Utf8 _ bs) = CUTF8 bs
-    convert (CONSTANT_Unicode _ bs) = CUnicode bs
+    convert (CClass i) = CClass $ getString $ pool ! i
+    convert (CField i j) = CField (className $ pool ! i) (convertNameType j)
+    convert (CMethod i j) = CMethod (className $ pool ! i) (convertNameType j)
+    convert (CIfaceMethod i j) = CIfaceMethod (className $ pool ! i) (convertNameType j)
+    convert (CString i) = CString $ getString $ pool ! i
+    convert (CInteger x) = CInteger x
+    convert (CFloat x)   = CFloat x
+    convert (CLong x)    = CLong (fromIntegral x)
+    convert (CDouble x)  = CDouble x
+    convert (CNameType i j) = CNameType (getString $ pool ! i) (getString $ pool ! j)
+    convert (CUTF8 _ bs) = CUTF8 bs
+    convert (CUnicode _ bs) = CUnicode bs
 
-convertAccess :: Word16 -> Access
+convertAccess :: AccessFlags Pointers -> AccessFlags Resolved
 convertAccess w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
    ACC_PUBLIC,
    ACC_PRIVATE,
@@ -191,43 +199,43 @@ convertAccess w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f]
    ACC_INTERFACE,
    ACC_ABSTRACT ]
 
-access2word16 :: Access -> Word16
+access2word16 :: AccessFlags Resolved -> AccessFlags Pointers
 access2word16 fs = bitsOr $ map toBit $ S.toList fs
   where
     bitsOr = foldl (.|.) 0
     toBit f = 1 `shiftL` (fromIntegral $ fromEnum f)
 
-convertField :: Pool -> FieldInfo -> Field
-convertField pool (FieldInfo {..}) = Field {
-  fieldAccess = convertAccess fieldAccessFlags,
-  fieldName = getString $ pool ! fieldNameIndex,
-  fieldSignature = decode $ getString $ pool ! fieldSignatureIndex,
-  fieldAttrs = convertAttrs pool fieldAttributes }
+convertField :: Pool Resolved -> Field Pointers -> Field Resolved
+convertField pool (Field {..}) = Field {
+  fieldAccessFlags = convertAccess fieldAccessFlags,
+  fieldName = getString $ pool ! fieldName,
+  fieldSignature = decode $ getString $ pool ! fieldSignature,
+  fieldAttributes = convertAttrs pool fieldAttributes }
 
-convertMethod :: Pool -> MethodInfo -> Method
-convertMethod pool (MethodInfo {..}) = Method {
-  methodAccess = convertAccess methodAccessFlags,
-  methodName = getString $ pool ! methodNameIndex,
-  methodSignature = decode $ getString $ pool ! methodSignatureIndex,
-  methodAttrs = convertAttrs pool methodAttributes }
+convertMethod :: Pool Resolved -> Method Pointers -> Method Resolved
+convertMethod pool (Method {..}) = Method {
+  methodAccessFlags = convertAccess methodAccessFlags,
+  methodName = getString $ pool ! methodName,
+  methodSignature = decode $ getString $ pool ! methodSignature,
+  methodAttributes = convertAttrs pool methodAttributes }
 
-convertAttrs :: Pool -> [AttributeInfo] -> Attributes
+convertAttrs :: Pool Resolved -> Attributes Pointers -> Attributes Resolved
 convertAttrs pool attrs = M.fromList $ map go attrs
   where
-    go (AttributeInfo {..}) = (getString $ pool ! attributeName,
-                               attributeValue)
+    go (Attribute {..}) = (getString $ pool ! attributeName,
+                           attributeValue)
 
 -- | Try to get class method by name
-methodByName :: Class -> B.ByteString -> Maybe Method
+methodByName :: Class Resolved -> B.ByteString -> Maybe (Method Resolved)
 methodByName cls name =
-  find (\m -> methodName m == name) (methods cls)
+  find (\m -> methodName m == name) (classMethods cls)
 
 -- | Try to get object attribute by name
-attrByName :: (HasAttributes a) => a -> B.ByteString -> Maybe B.ByteString
+attrByName :: (HasAttributes a) => a Resolved -> B.ByteString -> Maybe B.ByteString
 attrByName x name = M.lookup name (attributes x)
 
 -- | Try to get Code for class method (no Code for interface methods)
-methodCode :: Class
+methodCode :: Class Resolved
            -> B.ByteString       -- ^ Method name
            -> Maybe B.ByteString
 methodCode cls name = do

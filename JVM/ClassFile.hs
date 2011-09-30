@@ -1,15 +1,20 @@
-{-# LANGUAGE RecordWildCards, BangPatterns #-}
+{-# LANGUAGE RecordWildCards, BangPatterns, TypeFamilies, StandaloneDeriving, FlexibleContexts, FlexibleInstances, UndecidableInstances, TypeSynonymInstances #-}
 -- | This module declares (low-level) data types for Java .class files
 -- structures, and Binary instances to read/write them.
 module JVM.ClassFile
-  (ClassFile (..),
-   CpInfo (..),
-   FieldInfo (..),
-   MethodInfo (..),
-   AttributeInfo (..),
+  (Attribute (..),
    FieldType (..),
    FieldSignature, MethodSignature (..), ReturnSignature (..),
-   ArgumentSignature (..)
+   ArgumentSignature (..),
+   Pool, Link,
+   Method (..), Field (..), Class (..),
+   Constant (..),
+   Pointers, Resolved,
+   NameType (..),
+   HasSignature (..), HasAttributes (..),
+   AccessFlag (..), AccessFlags,
+   Attributes (..),
+   className
   )
   where
 
@@ -21,7 +26,10 @@ import Data.Binary.Get
 import Data.Binary.Put
 import Data.Char
 import Data.List
+import qualified Data.Set as S
+import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
+import Codec.Binary.UTF8.String hiding (encode, decode)
 
 -- | Read one-byte Char
 getChar8 :: Get Char
@@ -29,34 +37,136 @@ getChar8 = do
   x <- getWord8
   return $ chr (fromIntegral x)
 
+toString :: B.ByteString -> String
+toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
+
+type family Link s a
+
+data Pointers = Pointers
+
+data Resolved = Resolved
+
+type instance Link Pointers a = Word16
+
+type instance Link Resolved a = a
+
+type family AccessFlags stage
+
+type instance AccessFlags Pointers = Word16
+
+type instance AccessFlags Resolved = S.Set AccessFlag
+
+type family Attributes stage
+
+type instance Attributes Pointers = [Attribute]
+type instance Attributes Resolved = M.Map B.ByteString B.ByteString
+
+-- | Access flags. Used for classess, methods, variables.
+data AccessFlag =
+    ACC_PUBLIC 	     -- ^ 0x0001 Visible for all
+  | ACC_PRIVATE 	   -- ^ 0x0002 Visible only for defined class
+  | ACC_PROTECTED 	 -- ^ 0x0004 Visible only for subclasses
+  | ACC_STATIC 	     -- ^ 0x0008 Static method or variable
+  | ACC_FINAL 	     -- ^ 0x0010 No further subclassing or assignments
+  | ACC_SYNCHRONIZED -- ^ 0x0020 Uses monitors
+  | ACC_VOLATILE 	   -- ^ 0x0040 Could not be cached
+  | ACC_TRANSIENT 	 -- ^ 0x0080 
+  | ACC_NATIVE 	     -- ^ 0x0100 Implemented in other language
+  | ACC_INTERFACE 	 -- ^ 0x0200 Class is interface
+  | ACC_ABSTRACT 	   -- ^ 0x0400 
+  deriving (Eq, Show, Ord, Enum)
+
+class HasSignature a where
+  type Signature a
+
+instance HasSignature Field where
+  type Signature Field = FieldSignature
+
+instance HasSignature Method where
+  type Signature Method = MethodSignature
+
+-- | Name and signature pair. Used for methods and fields.
+data NameType a = NameType {
+  ntName :: B.ByteString,
+  ntSignature :: Signature a }
+
+instance Show (Signature a) => Show (NameType a) where
+  show (NameType n t) = toString n ++ ": " ++ show t
+
+deriving instance Eq (Signature a) => Eq (NameType a)
+
+instance (Binary (Signature a)) => Binary (NameType a) where
+  put (NameType n t) = putLazyByteString n >> put t
+
+  get = NameType <$> get <*> get
+
+-- | Constant pool item
+data Constant stage =
+    CClass B.ByteString
+  | CField {refClass :: Link stage B.ByteString, fieldNameType :: Link stage (NameType Field)}
+  | CMethod {refClass :: Link stage B.ByteString, nameType :: Link stage (NameType Method)}
+  | CIfaceMethod {refClass :: Link stage B.ByteString, nameType :: Link stage (NameType Method)}
+  | CString (Link stage B.ByteString)
+  | CInteger Word32
+  | CFloat Float
+  | CLong Integer
+  | CDouble Double
+  | CNameType (Link stage B.ByteString) (Link stage B.ByteString)
+  | CUTF8 {getString :: B.ByteString}
+  | CUnicode {getString :: B.ByteString}
+
+className ::  Constant Resolved -> B.ByteString
+className (CClass s) = s
+className x = error $ "Not a class: " ++ show x
+
+instance Show (Constant Resolved) where
+  show (CClass name) = "class " ++ toString name
+  show (CField cls nt) = "field " ++ toString cls ++ "." ++ show nt
+  show (CMethod cls nt) = "method " ++ toString cls ++ "." ++ show nt
+  show (CIfaceMethod cls nt) = "interface method " ++ toString cls ++ "." ++ show nt
+  show (CString s) = "String \"" ++ toString s ++ "\""
+  show (CInteger x) = show x
+  show (CFloat x) = show x
+  show (CLong x) = show x
+  show (CDouble x) = show x
+  show (CNameType name tp) = toString name ++ ": " ++ toString tp
+  show (CUTF8 s) = "UTF8 \"" ++ toString s ++ "\""
+  show (CUnicode s) = "Unicode \"" ++ toString s ++ "\""
+
+-- | Constant pool
+type Pool stage = M.Map Word16 (Constant stage)
+
 -- | Generic .class file format
-data ClassFile = ClassFile {
+data Class stage = Class {
   magic :: Word32,                   -- ^ Magic value: 0xCAFEBABE
   minorVersion :: Word16,
   majorVersion :: Word16,
   constsPoolSize :: Word16,          -- ^ Number of items in constants pool
-  constsPool :: [CpInfo],            -- ^ Constants pool itself
-  accessFlags :: Word16,             -- ^ See @JVM.Types.AccessFlag@
-  thisClass :: Word16,               -- ^ Constants pool item index for this class
-  superClass :: Word16,              -- ^ --/-- for super class, zero for java.lang.Object
+  constsPool :: Pool stage,            -- ^ Constants pool itself
+  accessFlags :: AccessFlags stage,             -- ^ See @JVM.Types.AccessFlag@
+  thisClass :: Link stage B.ByteString,               -- ^ Constants pool item index for this class
+  superClass :: Link stage B.ByteString,              -- ^ --/-- for super class, zero for java.lang.Object
   interfacesCount :: Word16,         -- ^ Number of implemented interfaces
-  interfaces :: [Word16],            -- ^ Constants pool item indexes for implemented interfaces
+  interfaces :: [Link stage B.ByteString],            -- ^ Constants pool item indexes for implemented interfaces
   classFieldsCount :: Word16,        -- ^ Number of class fileds
-  classFields :: [FieldInfo],        -- ^ Class fields
+  classFields :: [Field stage],        -- ^ Class fields
   classMethodsCount :: Word16,       -- ^ Number of class methods
-  classMethods :: [MethodInfo],      -- ^ Class methods
+  classMethods :: [Method stage],      -- ^ Class methods
   classAttributesCount :: Word16,    -- ^ Number of class attributes
-  classAttributes :: [AttributeInfo] -- ^ Class attributes
+  classAttributes :: Attributes stage -- ^ Class attributes
   }
-  deriving (Eq, Show)
 
-instance Binary ClassFile where
-  put (ClassFile {..}) = do
+deriving instance Eq (Constant Pointers)
+deriving instance Eq (Constant Resolved)
+deriving instance Show (Constant Pointers)
+
+instance Binary (Class Pointers) where
+  put (Class {..}) = do
     put magic
     put minorVersion
     put majorVersion
     put constsPoolSize
-    forM_ constsPool put
+    forM_ (M.elems constsPool) put
     put accessFlags
     put thisClass
     put superClass
@@ -86,7 +196,8 @@ instance Binary ClassFile where
     classMethods <- replicateM (fromIntegral classMethodsCount) get
     asCount <- get
     as <- replicateM (fromIntegral $ asCount) get
-    return $ ClassFile magic minor major poolsize pool af this super
+    let pool' = M.fromList $ zip [1..] pool
+    return $ Class magic minor major poolsize pool' af this super
                interfacesCount ifaces classFieldsCount classFields classMethodsCount classMethods asCount as
 
 -- | Field signature format
@@ -252,35 +363,25 @@ whileJust m = do
               return (x: next)
     Nothing -> return []
 
--- | Constant pool item format
-data CpInfo =
-    CONSTANT_Class {nameIndex :: Word16}                                          -- ^ 7
-  | CONSTANT_Fieldref {classIndex :: Word16, nameAndTypeIndex :: Word16}	        -- ^ 9
-  | CONSTANT_Methodref 	{classIndex :: Word16, nameAndTypeIndex :: Word16}        -- ^ 10
-  | CONSTANT_InterfaceMethodref {classIndex :: Word16, nameAndTypeIndex :: Word16}-- ^ 11
-  | CONSTANT_String {stringIndex :: Word16}                                       -- ^ 8
-  | CONSTANT_Integer {fourBytes :: Word32}	                                      -- ^ 3
-  | CONSTANT_Float Float                                                          -- ^ 4
-  | CONSTANT_Long Word64                                                          -- ^ 5
-  | CONSTANT_Double Double                                                        -- ^ 6
-  | CONSTANT_NameAndType {nameIndex :: Word16, signatureIndex :: Word16} 	        -- ^ 12
-  | CONSTANT_Utf8 {stringLength :: Word16, stringBytes :: B.ByteString}   	      -- ^ 1
-  | CONSTANT_Unicode {stringLength :: Word16, stringBytes :: B.ByteString}   	    -- ^ 2
-  deriving (Eq, Show)
-
-instance Binary CpInfo where
-  put (CONSTANT_Class i) = putWord8 7 >> put i
-  put (CONSTANT_Fieldref i j) = putWord8 9 >> put i >> put j
-  put (CONSTANT_Methodref i j) = putWord8 10 >> put i >> put j
-  put (CONSTANT_InterfaceMethodref i j) = putWord8 11 >> put i >> put j
-  put (CONSTANT_String i) = putWord8 8 >> put i
-  put (CONSTANT_Integer x) = putWord8 3 >> put x
-  put (CONSTANT_Float x)   = putWord8 4 >> putFloat32be x
-  put (CONSTANT_Long x)    = putWord8 5 >> put x
-  put (CONSTANT_Double x)  = putWord8 6 >> putFloat64be x
-  put (CONSTANT_NameAndType i j) = putWord8 12 >> put i >> put j
-  put (CONSTANT_Utf8 l bs) = putWord8 1 >> put l >> putLazyByteString bs
-  put (CONSTANT_Unicode l bs) = putWord8 2 >> put l >> putLazyByteString bs
+instance Binary (Constant Pointers) where
+  put (CClass i) = putWord8 7 >> put i
+  put (CField i j) = putWord8 9 >> put i >> put j
+  put (CMethod i j) = putWord8 10 >> put i >> put j
+  put (CIfaceMethod i j) = putWord8 11 >> put i >> put j
+  put (CString i) = putWord8 8 >> put i
+  put (CInteger x) = putWord8 3 >> put x
+  put (CFloat x)   = putWord8 4 >> putFloat32be x
+  put (CLong x)    = putWord8 5 >> put x
+  put (CDouble x)  = putWord8 6 >> putFloat64be x
+  put (CNameType i j) = putWord8 12 >> put i >> put j
+  put (CUTF8 bs) = do
+                   putWord8 1
+                   put (fromIntegral (B.length bs) :: Word16)
+                   putLazyByteString bs
+  put (CUnicode bs) = do
+                   putWord8 2
+                   put (fromIntegral (B.length bs) :: Word16)
+                   putLazyByteString bs
 
   get = do
     !offset <- bytesRead
@@ -288,38 +389,42 @@ instance Binary CpInfo where
     case tag of
       1 -> do
         l <- get
-        bs <- getLazyByteString (fromIntegral l)
-        return $ CONSTANT_Utf8 l bs
+        bs <- getLazyByteString (fromIntegral (l :: Word16))
+        return $ CUTF8 bs
       2 -> do
         l <- get
-        bs <- getLazyByteString (fromIntegral l)
-        return $ CONSTANT_Unicode l bs
-      3  -> CONSTANT_Integer   <$> get
-      4  -> CONSTANT_Float     <$> getFloat32be
-      5  -> CONSTANT_Long      <$> get
-      6  -> CONSTANT_Double    <$> getFloat64be
-      7  -> CONSTANT_Class     <$> get
-      8  -> CONSTANT_String    <$> get
-      9  -> CONSTANT_Fieldref  <$> get <*> get
-      10 -> CONSTANT_Methodref <$> get <*> get
-      11 -> CONSTANT_InterfaceMethodref <$> get <*> get
-      12 -> CONSTANT_NameAndType <$> get <*> get
+        bs <- getLazyByteString (fromIntegral (l :: Word16))
+        return $ CUnicode bs
+      3  -> CInteger   <$> get
+      4  -> CFloat     <$> getFloat32be
+      5  -> CLong      <$> get
+      6  -> CDouble    <$> getFloat64be
+      7  -> CClass     <$> get
+      8  -> CString    <$> get
+      9  -> CField     <$> get <*> get
+      10 -> CMethod    <$> get <*> get
+      11 -> CIfaceMethod <$> get <*> get
+      12 -> CNameType    <$> get <*> get
       _  -> fail $ "Unknown constants pool entry tag: " ++ show tag
 
 -- | Class field format
-data FieldInfo = FieldInfo {
-  fieldAccessFlags :: Word16,
-  fieldNameIndex :: Word16,
-  fieldSignatureIndex :: Word16,
+data Field stage = Field {
+  fieldAccessFlags :: AccessFlags stage,
+  fieldName :: Link stage B.ByteString,
+  fieldSignature :: Link stage FieldSignature,
   fieldAttributesCount :: Word16,
-  fieldAttributes :: [AttributeInfo] }
-  deriving (Eq, Show)
+  fieldAttributes :: Attributes stage }
 
-instance Binary FieldInfo where
-  put (FieldInfo {..}) = do
+deriving instance Eq (Field Pointers)
+deriving instance Eq (Field Resolved)
+deriving instance Show (Field Pointers)
+deriving instance Show (Field Resolved)
+
+instance Binary (Field Pointers) where
+  put (Field {..}) = do
     put fieldAccessFlags 
-    put fieldNameIndex
-    put fieldSignatureIndex
+    put fieldName
+    put fieldSignature
     put fieldAttributesCount
     forM_ fieldAttributes put
 
@@ -329,22 +434,26 @@ instance Binary FieldInfo where
     si <- get
     n <- get
     as <- replicateM (fromIntegral n) get
-    return $ FieldInfo af ni si n as
+    return $ Field af ni si n as
 
 -- | Class method format
-data MethodInfo = MethodInfo {
-  methodAccessFlags :: Word16,
-  methodNameIndex :: Word16,
-  methodSignatureIndex :: Word16,
+data Method stage = Method {
+  methodAccessFlags :: Attributes stage,
+  methodName :: Link stage B.ByteString,
+  methodSignature :: Link stage MethodSignature,
   methodAttributesCount :: Word16,
-  methodAttributes :: [AttributeInfo] }
-  deriving (Eq, Show)
+  methodAttributes :: Attributes stage }
 
-instance Binary MethodInfo where
-  put (MethodInfo {..}) = do
+deriving instance Eq (Method Pointers)
+deriving instance Eq (Method Resolved)
+deriving instance Show (Method Pointers)
+deriving instance Show (Method Resolved)
+
+instance Binary (Method Pointers) where
+  put (Method {..}) = do
     put methodAccessFlags
-    put methodNameIndex 
-    put methodSignatureIndex
+    put methodName
+    put methodSignature
     put methodAttributesCount 
     forM_ methodAttributes put
 
@@ -355,18 +464,18 @@ instance Binary MethodInfo where
     si <- get
     n <- get
     as <- replicateM (fromIntegral n) get
-    return $ MethodInfo af ni si n as
+    return $ Method af ni si n as
 
 -- | Any (class/ field/ method/ ...) attribute format.
 -- Some formats specify special formats for @attributeValue@.
-data AttributeInfo = AttributeInfo {
+data Attribute = Attribute {
   attributeName :: Word16,
   attributeLength :: Word32,
   attributeValue :: B.ByteString }
   deriving (Eq, Show)
 
-instance Binary AttributeInfo where
-  put (AttributeInfo {..}) = do
+instance Binary Attribute where
+  put (Attribute {..}) = do
     put attributeName
     putWord32be attributeLength
     putLazyByteString attributeValue
@@ -376,5 +485,17 @@ instance Binary AttributeInfo where
     name <- get
     len <- getWord32be
     value <- getLazyByteString (fromIntegral len)
-    return $ AttributeInfo name len value
+    return $ Attribute name len value
+
+class HasAttributes a where
+  attributes :: a stage -> Attributes stage
+
+instance HasAttributes Class where
+  attributes = classAttributes
+
+instance HasAttributes Field where
+  attributes = fieldAttributes
+
+instance HasAttributes Method where
+  attributes = methodAttributes
 

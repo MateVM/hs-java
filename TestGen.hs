@@ -9,51 +9,41 @@ import JVM.Assembler
 import JVM.Generator
 import JVM.Generator.Instructions
 
-initNT :: NameType Method
-initNT = NameType "<init>" $ MethodSignature [] ReturnsVoid
+import qualified Java.Lang
+import qualified Java.IO
 
-helloNT :: NameType Method
-helloNT = NameType "hello" $ MethodSignature [IntType] ReturnsVoid
+hello :: NameType Method
+hello = NameType "hello" $ MethodSignature [IntType] ReturnsVoid
 
-printlnNT :: NameType Method
-printlnNT = NameType "println" $ MethodSignature [ObjectType "java/lang/String"] ReturnsVoid
-
-outNT :: NameType Field
-outNT = NameType "out" $ ObjectType "java/io/PrintStream"
-
-valueOfNT :: NameType Method
-valueOfNT = NameType "valueOf" $ MethodSignature [IntType] (Returns $ ObjectType "java/lang/Integer")
-
-printfNT :: NameType Method
-printfNT = NameType "printf" $ MethodSignature [ObjectType "java/lang/String",
-                                                Array Nothing $ ObjectType "java/lang/Object"] (Returns $ ObjectType "java/io/PrintStream")
+valueOf :: NameType Method
+valueOf = NameType "valueOf" $ MethodSignature [IntType] (Returns Java.Lang.integerClass)
 
 test :: Generate ()
 test = do
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
       aload_ I0
-      invokeSpecial "java/lang/Object" initNT
+      invokeSpecial Java.Lang.object Java.Lang.objectInit
       i0 RETURN
 
-  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [Array Nothing $ ObjectType "java/lang/String"] ReturnsVoid $ do
+  newMethod [ACC_PUBLIC, ACC_STATIC] "main" [Array Nothing Java.Lang.stringClass] ReturnsVoid $ do
       iconst_5
-      invokeStatic "Test" helloNT
+      invokeStatic "Test" hello
       i0 RETURN
 
   newMethod [ACC_PUBLIC, ACC_STATIC] "hello" [IntType] ReturnsVoid $ do
-      getStaticField "java/lang/System" outNT
+      getStaticField Java.Lang.system Java.IO.out
       loadString "Здравствуй, мир!"
-      invokeVirtual "java/io/PrintStream" printlnNT
-      getStaticField "java/lang/System" outNT
+      invokeVirtual Java.IO.printStream Java.IO.println
+      getStaticField Java.Lang.system Java.IO.out
       loadString "Argument: %d\n"
       iconst_1
-      allocArray "java/lang/Object"
+      allocArray Java.Lang.object
       dup
       iconst_0
       iload_ I0
-      invokeStatic "java/lang/Integer" valueOfNT
+      invokeStatic Java.Lang.integer valueOf
       aastore
-      invokeVirtual "java/io/PrintStream" printfNT
+      invokeVirtual Java.IO.printStream Java.IO.printf
       pop
       i0 RETURN
 

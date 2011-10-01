@@ -11,6 +11,7 @@ import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
 
+-- | Dump a class to console.
 dumpClass :: Class Resolved -> IO ()
 dumpClass cls = do
     putStr "Class: "

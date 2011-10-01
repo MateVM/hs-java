@@ -116,7 +116,7 @@ readInstructions = do
           next <- readInstructions
           return (x: next)
 
--- | JVM instruction set
+-- | JVM instruction set. For comments, see JVM specification.
 data Instruction =
     NOP            -- ^ 0
   | ACONST_NULL    -- ^ 1
@@ -708,6 +708,7 @@ instance BinaryState Integer Instruction where
         | inRange (159, 164) c -> IF_ICMP (toEnum $ fromIntegral $ c-159) <$> get
         | otherwise -> fail $ "Unknown instruction byte code: " ++ show c
 
+-- | Encode list of instructions
 encodeInstructions :: [Instruction] -> B.ByteString
 encodeInstructions code =
   let p list = forM_ list put

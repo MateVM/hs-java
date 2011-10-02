@@ -1,5 +1,5 @@
 Name:           hs-java
-Version:        0.2
+Version:        0.3
 Cabal-Version:  >= 1.6
 License:        BSD3
 License-File:   LICENSE
@@ -32,10 +32,10 @@ library
   Build-Depends:  base >= 3 && <= 5, containers, binary,
                   mtl, directory, filepath, utf8-string, array,
                   bytestring, data-binary-ieee754, binary-state,
-                  control-monad-exception
+                  control-monad-exception, data-default
 
   ghc-options: -fwarn-unused-imports
 
 Source-repository head
   type:     git
-  location: git remote add origin git@gitorious.org:hs-java/hs-java.git
+  location: git@gitorious.org:hs-java/hs-java.git

@@ -175,7 +175,7 @@ constantPoolArray ps = pool
 
     n = fromIntegral $ M.size ps
 
-    convertNameType :: (HasSignature a, Binary (Signature a)) => Word16 -> NameType a
+    convertNameType :: (HasSignature a) => Word16 -> NameType a
     convertNameType i =
       let (CNameType n s) = pool ! i
       in  NameType n (decode s)

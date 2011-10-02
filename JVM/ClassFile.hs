@@ -222,6 +222,7 @@ deriving instance Eq (Constant File)
 deriving instance Eq (Constant Direct)
 deriving instance Show (Constant File)
 
+-- | Default (empty) class file definition.
 defaultClass :: (Default (AccessFlags stage), Default (Link stage B.ByteString), Default (Attributes stage))
              => Class stage
 defaultClass = Class {

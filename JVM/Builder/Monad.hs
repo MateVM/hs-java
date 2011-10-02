@@ -72,7 +72,7 @@ lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
 lookupPool c pool =
   fromIntegral `fmap` findIndex (== c) (M.elems pool)
 
-addNT :: Binary (Signature a) => NameType a -> Generate Word16
+addNT :: HasSignature a => NameType a -> Generate Word16
 addNT (NameType name sig) = do
   let bsig = encode sig
   x <- addItem (CNameType name bsig)

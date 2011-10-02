@@ -128,7 +128,8 @@ data AccessFlag =
   deriving (Eq, Show, Ord, Enum)
 
 -- | Fields and methods have signatures.
-class HasSignature a where
+class (Binary (Signature a), Show (Signature a), Eq (Signature a))
+    => HasSignature a where
   type Signature a
 
 instance HasSignature Field where
@@ -142,12 +143,12 @@ data NameType a = NameType {
   ntName :: B.ByteString,
   ntSignature :: Signature a }
 
-instance Show (Signature a) => Show (NameType a) where
+instance (HasSignature a) => Show (NameType a) where
   show (NameType n t) = toString n ++ ": " ++ show t
 
-deriving instance Eq (Signature a) => Eq (NameType a)
+deriving instance HasSignature a => Eq (NameType a)
 
-instance (Binary (Signature a)) => Binary (NameType a) where
+instance HasSignature a => Binary (NameType a) where
   put (NameType n t) = putLazyByteString n >> put t
 
   get = NameType <$> get <*> get

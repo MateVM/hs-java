@@ -15,8 +15,15 @@ import qualified Data.ByteString.Lazy as B
 import Data.Char
 import Data.String
 import qualified Data.Map as M
+import Data.Default
 
 import JVM.ClassFile
+
+instance Default B.ByteString where
+  def = B.empty
+
+instance Default Word16 where
+  def = 0
 
 instance IsString B.ByteString where
   fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s

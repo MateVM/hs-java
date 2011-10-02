@@ -220,21 +220,13 @@ generate name gen =
         gen
       res = execState generator emptyGState
       code = genCode res
-  in  Class {
-        magic = 0xCAFEBABE,
-        minorVersion = 0,
-        majorVersion = 50,
+      d = defaultClass :: Class Direct
+  in  d {
         constsPoolSize = fromIntegral $ M.size (currentPool res),
         constsPool = currentPool res,
         accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],
         thisClass = name,
         superClass = "java/lang/Object",
-        interfacesCount = 0,
-        interfaces = [],
-        classFieldsCount = 0,
-        classFields = [],
         classMethodsCount = fromIntegral $ length (doneMethods res),
-        classMethods = doneMethods res,
-        classAttributesCount = 0,
-        classAttributes = AR M.empty }
+        classMethods = doneMethods res }
 

@@ -62,7 +62,7 @@ classDirect2File (Class {..}) =
   in d {
     constsPoolSize = fromIntegral (M.size poolInfo + 1),
     constsPool = poolInfo,
-    accessFlags = access2word16 accessFlags,
+    accessFlags = accessDirect2File accessFlags,
     thisClass = force "this" $ poolClassIndex poolInfo thisClass,
     superClass = force "super" $ poolClassIndex poolInfo superClass,
     interfacesCount = fromIntegral (length interfaces),
@@ -139,7 +139,7 @@ poolNTIndex list x@(NameType n t) = do
 
 fieldDirect2File :: Pool File -> Field Direct -> Field File
 fieldDirect2File pool (Field {..}) = Field {
-    fieldAccessFlags = access2word16 fieldAccessFlags,
+    fieldAccessFlags = accessDirect2File fieldAccessFlags,
     fieldName = force "field name" $ poolIndex pool fieldName,
     fieldSignature = force "signature" $ poolIndex pool (encode fieldSignature),
     fieldAttributesCount = fromIntegral (arsize fieldAttributes),
@@ -150,7 +150,7 @@ fieldDirect2File pool (Field {..}) = Field {
 
 methodDirect2File :: Pool File -> Method Direct -> Method File
 methodDirect2File pool (Method {..}) = Method {
-    methodAccessFlags = access2word16 methodAccessFlags,
+    methodAccessFlags = accessDirect2File methodAccessFlags,
     methodName = force "method name" $ poolIndex pool methodName,
     methodSignature = force "method sig" $ poolIndex pool (encode methodSignature),
     methodAttributesCount = fromIntegral (arsize methodAttributes),
@@ -205,8 +205,8 @@ accessFile2Direct w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then
    ACC_INTERFACE,
    ACC_ABSTRACT ]
 
-access2word16 :: AccessFlags Direct -> AccessFlags File
-access2word16 fs = bitsOr $ map toBit $ S.toList fs
+accessDirect2File :: AccessFlags Direct -> AccessFlags File
+accessDirect2File fs = bitsOr $ map toBit $ S.toList fs
   where
     bitsOr = foldl (.|.) 0
     toBit f = 1 `shiftL` (fromIntegral $ fromEnum f)

@@ -19,6 +19,7 @@ module JVM.ClassFile
    Constant (..),
    AccessFlag (..), AccessFlags,
    Attributes (..),
+   defaultClass,
    -- * Misc
    HasSignature (..), HasAttributes (..),
    NameType (..),
@@ -35,6 +36,7 @@ import Data.Binary.Get
 import Data.Binary.Put
 import Data.Char
 import Data.List
+import Data.Default
 import qualified Data.Set as S
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
@@ -96,9 +98,15 @@ data family Attributes stage
 data instance Attributes File = AP {attributesList :: [Attribute]}
   deriving (Eq, Show)
 
+instance Default (Attributes File) where
+  def = AP []
+
 -- | At Direct stage, attributes are represented as a Map.
 data instance Attributes Direct = AR (M.Map B.ByteString B.ByteString)
   deriving (Eq, Show)
+
+instance Default (Attributes Direct) where
+  def = AR M.empty
 
 -- | Size of attributes set at Direct stage
 arsize :: Attributes Direct -> Int
@@ -213,6 +221,26 @@ data Class stage = Class {
 deriving instance Eq (Constant File)
 deriving instance Eq (Constant Direct)
 deriving instance Show (Constant File)
+
+defaultClass :: (Default (AccessFlags stage), Default (Link stage B.ByteString), Default (Attributes stage))
+             => Class stage
+defaultClass = Class {
+  magic = 0xCAFEBABE,
+  minorVersion = 0,
+  majorVersion = 50,
+  constsPoolSize = 0,
+  constsPool = def,
+  accessFlags = def,
+  thisClass = def,
+  superClass = def,
+  interfacesCount = 0,
+  interfaces = [],
+  classFieldsCount = 0,
+  classFields = [],
+  classMethodsCount = 0,
+  classMethods = [],
+  classAttributesCount = 0,
+  classAttributes = def }
 
 instance Binary (Class File) where
   put (Class {..}) = do

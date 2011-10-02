@@ -16,6 +16,7 @@ import Data.List
 import Data.Word
 import Data.Bits
 import Data.Binary
+import Data.Default () -- import instances only
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Set as S
 import qualified Data.Map as M
@@ -39,10 +40,8 @@ classFile2Direct :: Class File -> Class Direct
 classFile2Direct (Class {..}) =
   let pool = poolFile2Direct constsPool
       superName = className $ pool ! superClass
-  in Class {
-      magic = 0xCAFEBABE,
-      minorVersion = 0,
-      majorVersion = 50,
+      d = defaultClass :: Class Direct
+  in d {
       constsPoolSize = fromIntegral (M.size pool),
       constsPool = pool,
       accessFlags = accessFile2Direct accessFlags,
@@ -58,10 +57,9 @@ classFile2Direct (Class {..}) =
       classAttributes = attributesFile2Direct pool classAttributes }
 
 classDirect2File :: Class Direct -> Class File
-classDirect2File (Class {..}) = Class {
-    magic = 0xCAFEBABE,
-    minorVersion = 0,
-    majorVersion = 50,
+classDirect2File (Class {..}) =
+  let d = defaultClass :: Class File
+  in d {
     constsPoolSize = fromIntegral (M.size poolInfo + 1),
     constsPool = poolInfo,
     accessFlags = access2word16 accessFlags,

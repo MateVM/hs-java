@@ -47,7 +47,7 @@ test = do
 
   return ()
 
-testClass ::  Class Resolved
+testClass ::  Class Direct
 testClass = generate "Test" test
 
 main = do

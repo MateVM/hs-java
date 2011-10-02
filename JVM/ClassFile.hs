@@ -2,18 +2,26 @@
 -- | This module declares (low-level) data types for Java .class files
 -- structures, and Binary instances to read/write them.
 module JVM.ClassFile
-  (Attribute (..),
+  (-- * About
+   -- $about
+   --
+   -- * Internal class file structures
+   Attribute (..),
    FieldType (..),
+   -- * Signatures
    FieldSignature, MethodSignature (..), ReturnSignature (..),
    ArgumentSignature (..),
+   -- * Stage types
+   File, Direct,
+   -- * Staged structures
    Pool, Link,
    Method (..), Field (..), Class (..),
    Constant (..),
-   Pointers, Resolved,
-   NameType (..),
-   HasSignature (..), HasAttributes (..),
    AccessFlag (..), AccessFlags,
    Attributes (..),
+   -- * Misc
+   HasSignature (..), HasAttributes (..),
+   NameType (..),
    className,
    apsize, arsize, arlist
   )
@@ -32,6 +40,22 @@ import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 import Codec.Binary.UTF8.String hiding (encode, decode)
 
+-- $about
+--
+-- Java .class file uses constants pool, which stores almost all source-code-level
+-- constants (strings, integer literals etc), and also all identifiers (class,
+-- method, field names etc). All other structures contain indexes of constants in
+-- the pool instead of constants theirself.
+--
+-- It's not convient to use that indexes programmatically. So, .class file is represented
+-- at two stages: File and Direct. At File stage, all data structures contain only indexes,
+-- not constants theirself. When we read a class from a file, we get structure at File stage.
+-- We only can write File stage structure to file.
+--
+-- At Direct stage, structures conain constants, not indexes. Convertion functions (File <-> Direct)
+-- are located in the JVM.Converter module.
+--
+
 -- | Read one-byte Char
 getChar8 :: Get Char
 getChar8 = do
@@ -41,36 +65,51 @@ getChar8 = do
 toString :: B.ByteString -> String
 toString bstr = decodeString $ map (chr . fromIntegral) $ B.unpack bstr
 
-type family Link s a
+-- | File stage
+data File = File
 
-data Pointers = Pointers
+-- | Direct representation stage
+data Direct = Direct
 
-data Resolved = Resolved
+-- | Link to some object
+type family Link stage a
 
-type instance Link Pointers a = Word16
+-- | At File stage, Link contain index of object in the constants pool.
+type instance Link File a = Word16
 
-type instance Link Resolved a = a
+-- | At Direct stage, Link contain object itself.
+type instance Link Direct a = a
 
+-- | Object (class, method, field …) access flags 
 type family AccessFlags stage
 
-type instance AccessFlags Pointers = Word16
+-- | At File stage, access flags are represented as Word16
+type instance AccessFlags File = Word16
 
-type instance AccessFlags Resolved = S.Set AccessFlag
+-- | At Direct stage, access flags are represented as set of flags.
+type instance AccessFlags Direct = S.Set AccessFlag
 
+-- | Object (class, method, field) attributes
 data family Attributes stage
 
-data instance Attributes Pointers = AP {attributesList :: [Attribute]}
-  deriving (Eq, Show)
-data instance Attributes Resolved = AR (M.Map B.ByteString B.ByteString)
+-- | At File stage, attributes are represented as list of Attribute structures.
+data instance Attributes File = AP {attributesList :: [Attribute]}
   deriving (Eq, Show)
 
-arsize :: Attributes Resolved -> Int
+-- | At Direct stage, attributes are represented as a Map.
+data instance Attributes Direct = AR (M.Map B.ByteString B.ByteString)
+  deriving (Eq, Show)
+
+-- | Size of attributes set at Direct stage
+arsize :: Attributes Direct -> Int
 arsize (AR m) = M.size m
 
-arlist :: Attributes Resolved -> [(B.ByteString, B.ByteString)]
+-- | Associative list of attributes at Direct stage
+arlist :: Attributes Direct -> [(B.ByteString, B.ByteString)]
 arlist (AR m) = M.assocs m
 
-apsize :: Attributes Pointers -> Int
+-- | Size of attributes set at File stage
+apsize :: Attributes File -> Int
 apsize (AP list) = length list
 
 -- | Access flags. Used for classess, methods, variables.
@@ -88,6 +127,7 @@ data AccessFlag =
   | ACC_ABSTRACT 	   -- ^ 0x0400 
   deriving (Eq, Show, Ord, Enum)
 
+-- | Fields and methods have signatures.
 class HasSignature a where
   type Signature a
 
@@ -127,11 +167,12 @@ data Constant stage =
   | CUTF8 {getString :: B.ByteString}
   | CUnicode {getString :: B.ByteString}
 
-className ::  Constant Resolved -> B.ByteString
+-- | Name of the CClass. Error on any other constant.
+className ::  Constant Direct -> B.ByteString
 className (CClass s) = s
 className x = error $ "Not a class: " ++ show x
 
-instance Show (Constant Resolved) where
+instance Show (Constant Direct) where
   show (CClass name) = "class " ++ toString name
   show (CField cls nt) = "field " ++ toString cls ++ "." ++ show nt
   show (CMethod cls nt) = "method " ++ toString cls ++ "." ++ show nt
@@ -168,11 +209,11 @@ data Class stage = Class {
   classAttributes :: Attributes stage -- ^ Class attributes
   }
 
-deriving instance Eq (Constant Pointers)
-deriving instance Eq (Constant Resolved)
-deriving instance Show (Constant Pointers)
+deriving instance Eq (Constant File)
+deriving instance Eq (Constant Direct)
+deriving instance Show (Constant File)
 
-instance Binary (Class Pointers) where
+instance Binary (Class File) where
   put (Class {..}) = do
     put magic
     put minorVersion
@@ -376,7 +417,7 @@ whileJust m = do
               return (x: next)
     Nothing -> return []
 
-instance Binary (Constant Pointers) where
+instance Binary (Constant File) where
   put (CClass i) = putWord8 7 >> put i
   put (CField i j) = putWord8 9 >> put i >> put j
   put (CMethod i j) = putWord8 10 >> put i >> put j
@@ -428,12 +469,12 @@ data Field stage = Field {
   fieldAttributesCount :: Word16,
   fieldAttributes :: Attributes stage }
 
-deriving instance Eq (Field Pointers)
-deriving instance Eq (Field Resolved)
-deriving instance Show (Field Pointers)
-deriving instance Show (Field Resolved)
+deriving instance Eq (Field File)
+deriving instance Eq (Field Direct)
+deriving instance Show (Field File)
+deriving instance Show (Field Direct)
 
-instance Binary (Field Pointers) where
+instance Binary (Field File) where
   put (Field {..}) = do
     put fieldAccessFlags 
     put fieldName
@@ -457,12 +498,12 @@ data Method stage = Method {
   methodAttributesCount :: Word16,
   methodAttributes :: Attributes stage }
 
-deriving instance Eq (Method Pointers)
-deriving instance Eq (Method Resolved)
-deriving instance Show (Method Pointers)
-deriving instance Show (Method Resolved)
+deriving instance Eq (Method File)
+deriving instance Eq (Method Direct)
+deriving instance Show (Method File)
+deriving instance Show (Method Direct)
 
-instance Binary (Method Pointers) where
+instance Binary (Method File) where
   put (Method {..}) = do
     put methodAccessFlags
     put methodName

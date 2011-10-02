@@ -54,7 +54,7 @@ data Code = Code {
     codeExceptionsN :: Word16,
     codeExceptions :: [CodeException],
     codeAttrsN :: Word16,
-    codeAttributes :: Attributes Pointers }
+    codeAttributes :: Attributes File }
   deriving (Eq, Show)
 
 -- | Exception descriptor

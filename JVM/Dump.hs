@@ -12,7 +12,7 @@ import JVM.Converter
 import JVM.Assembler
 
 -- | Dump a class to console.
-dumpClass :: Class Resolved -> IO ()
+dumpClass :: Class Direct -> IO ()
 dumpClass cls = do
     putStr "Class: "
     B.putStrLn (thisClass cls)

@@ -48,21 +48,21 @@ bipush x = i0 (BIPUSH x)
 sipush ::  Word16 -> Generate ()
 sipush x = i0 (SIPUSH x)
 
-ldc1 ::  Constant Resolved -> Generate ()
+ldc1 ::  Constant Direct -> Generate ()
 ldc1 x = i8 LDC1 x
-ldc2 ::  Constant Resolved -> Generate ()
+ldc2 ::  Constant Direct -> Generate ()
 ldc2 x = i1 LDC2 x
-ldc2w ::  Constant Resolved -> Generate ()
+ldc2w ::  Constant Direct -> Generate ()
 ldc2w x = i1 LDC2W x
-iload ::  Constant Resolved -> Generate ()
+iload ::  Constant Direct -> Generate ()
 iload x = i8 ILOAD x
-lload ::  Constant Resolved -> Generate ()
+lload ::  Constant Direct -> Generate ()
 lload x = i8 LLOAD x
-fload ::  Constant Resolved -> Generate ()
+fload ::  Constant Direct -> Generate ()
 fload x = i8 FLOAD x
-dload ::  Constant Resolved -> Generate ()
+dload ::  Constant Direct -> Generate ()
 dload x = i8 DLOAD x
-aload ::  Constant Resolved -> Generate ()
+aload ::  Constant Direct -> Generate ()
 aload x = i8 ALOAD x
 
 iload_ ::  IMM -> Generate ()
@@ -91,15 +91,15 @@ caload = i0 CALOAD
 saload ::  Generate ()
 saload = i0 SALOAD
 
-istore ::  Constant Resolved -> Generate ()
+istore ::  Constant Direct -> Generate ()
 istore x = i8 ISTORE x
-lstore ::  Constant Resolved -> Generate ()
+lstore ::  Constant Direct -> Generate ()
 lstore x = i8 LSTORE x
-fstore ::  Constant Resolved -> Generate ()
+fstore ::  Constant Direct -> Generate ()
 fstore x = i8 FSTORE x
-dstore ::  Constant Resolved -> Generate ()
+dstore ::  Constant Direct -> Generate ()
 dstore x = i8 DSTORE x
-astore ::  Constant Resolved -> Generate ()
+astore ::  Constant Direct -> Generate ()
 astore x = i8 ASTORE x
 
 istore_ ::  Word8 -> Generate ()
@@ -258,7 +258,7 @@ lcmp ::  Generate ()
 lcmp = i0 LCMP
 
 -- | Wide instruction
-wide :: (Word8 -> Instruction) -> Constant Resolved -> Generate ()
+wide :: (Word8 -> Instruction) -> Constant Direct -> Generate ()
 wide fn c = do
   ix <- addToPool c
   let ix0 = fromIntegral (ix `div` 0x100) :: Word8

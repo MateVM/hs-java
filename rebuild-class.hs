@@ -15,7 +15,7 @@ main = do
   case args of
     [clspath,outpath] -> do
       cls <- parseClassFile clspath
-      clsfile <- decodeFile clspath :: IO (Class Pointers)
+      clsfile <- decodeFile clspath :: IO (Class File)
       dumpClass cls
       putStrLn $ "Source pool:\n" ++ showListIx (M.elems $ constsPool clsfile)
       let result = classFile cls

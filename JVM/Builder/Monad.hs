@@ -27,9 +27,9 @@ import JVM.Assembler
 -- | Generator state
 data GState = GState {
   generated :: [Instruction],               -- ^ Already generated code (in current method)
-  currentPool :: Pool Resolved,             -- ^ Already generated constants pool
-  doneMethods :: [Method Resolved],         -- ^ Already generated class methods
-  currentMethod :: Maybe (Method Resolved), -- ^ Current method
+  currentPool :: Pool Direct,             -- ^ Already generated constants pool
+  doneMethods :: [Method Direct],         -- ^ Already generated class methods
+  currentMethod :: Maybe (Method Direct), -- ^ Current method
   stackSize :: Word16,                      -- ^ Maximum stack size for current method
   locals :: Word16                          -- ^ Maximum number of local variables for current method
   }
@@ -49,14 +49,14 @@ emptyGState = GState {
 type Generate a = State GState a
 
 -- | Append a constant to pool
-appendPool :: Constant Resolved -> Pool Resolved -> (Pool Resolved, Word16)
+appendPool :: Constant Direct -> Pool Direct -> (Pool Direct, Word16)
 appendPool c pool =
   let size = fromIntegral (M.size pool)
       pool' = M.insert size c pool
   in  (pool', size)
 
 -- | Add a constant to pool
-addItem :: Constant Resolved -> Generate Word16
+addItem :: Constant Direct -> Generate Word16
 addItem c = do
   pool <- St.gets currentPool
   case lookupPool c pool of
@@ -68,7 +68,7 @@ addItem c = do
       return (i+1)
 
 -- | Lookup in a pool
-lookupPool :: Constant Resolved -> Pool Resolved -> Maybe Word16
+lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
 lookupPool c pool =
   fromIntegral `fmap` findIndex (== c) (M.elems pool)
 
@@ -86,7 +86,7 @@ addSig c@(MethodSignature args ret) = do
   addItem (CUTF8 bsig)
 
 -- | Add a constant into pool
-addToPool :: Constant Resolved -> Generate Word16
+addToPool :: Constant Direct -> Generate Word16
 addToPool c@(CClass str) = do
   addItem (CUTF8 str)
   addItem c
@@ -122,13 +122,13 @@ i0 :: Instruction -> Generate ()
 i0 = putInstruction
 
 -- | Generate one one-argument instruction
-i1 :: (Word16 -> Instruction) -> Constant Resolved -> Generate ()
+i1 :: (Word16 -> Instruction) -> Constant Direct -> Generate ()
 i1 fn c = do
   ix <- addToPool c
   i0 (fn ix)
 
 -- | Generate one one-argument instruction
-i8 :: (Word8 -> Instruction) -> Constant Resolved -> Generate ()
+i8 :: (Word8 -> Instruction) -> Constant Direct -> Generate ()
 i8 fn c = do
   ix <- addToPool c
   i0 (fn $ fromIntegral ix)
@@ -213,7 +213,7 @@ initClass name = do
   addToPool (CString "Code")
 
 -- | Generate a class
-generate :: B.ByteString -> Generate () -> Class Resolved
+generate :: B.ByteString -> Generate () -> Class Direct
 generate name gen =
   let generator = do
         initClass name

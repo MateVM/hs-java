@@ -18,7 +18,7 @@ main = do
       clsfile <- decodeFile clspath :: IO (Class File)
       dumpClass cls
       putStrLn $ "Source pool:\n" ++ showListIx (M.elems $ constsPool clsfile)
-      let result = classFile cls
+      let result = classDirect2File cls
       putStrLn $ "Result pool:\n" ++ showListIx (M.elems $ constsPool result)
       B.writeFile outpath (encodeClass cls)
 

@@ -3,7 +3,7 @@
 -- high-level Java classes, methods etc representation
 module JVM.Converter
   (parseClass, parseClassFile,
-   convertClass, classFile,
+   classFile2Direct, classDirect2File,
    encodeClass,
    methodByName,
    attrByName,
@@ -26,18 +26,18 @@ import JVM.Exceptions
 
 -- | Parse .class file data
 parseClass :: B.ByteString -> Class Direct
-parseClass bstr = convertClass $ decode bstr
+parseClass bstr = classFile2Direct $ decode bstr
 
 -- | Parse class data from file
 parseClassFile :: FilePath -> IO (Class Direct)
-parseClassFile path = convertClass `fmap` decodeFile path
+parseClassFile path = classFile2Direct `fmap` decodeFile path
 
 encodeClass :: (Class Direct) -> B.ByteString
-encodeClass cls = encode $ classFile cls
+encodeClass cls = encode $ classDirect2File cls
 
-convertClass :: Class File -> Class Direct
-convertClass (Class {..}) =
-  let pool = constantPoolArray constsPool
+classFile2Direct :: Class File -> Class Direct
+classFile2Direct (Class {..}) =
+  let pool = poolFile2Direct constsPool
       superName = className $ pool ! superClass
   in Class {
       magic = 0xCAFEBABE,
@@ -45,20 +45,20 @@ convertClass (Class {..}) =
       majorVersion = 50,
       constsPoolSize = fromIntegral (M.size pool),
       constsPool = pool,
-      accessFlags = convertAccess accessFlags,
+      accessFlags = accessFile2Direct accessFlags,
       thisClass = className $ pool ! thisClass,
       superClass = if superClass == 0 then "" else superName,
       interfacesCount = interfacesCount,
       interfaces = map (\i -> className $ pool ! i) interfaces,
       classFieldsCount = classFieldsCount,
-      classFields = map (convertField pool) classFields,
+      classFields = map (fieldFile2Direct pool) classFields,
       classMethodsCount = classMethodsCount,
-      classMethods = map (convertMethod pool) classMethods,
+      classMethods = map (methodFile2Direct pool) classMethods,
       classAttributesCount = classAttributesCount,
-      classAttributes = convertAttrs pool classAttributes }
+      classAttributes = attributesFile2Direct pool classAttributes }
 
-classFile :: Class Direct -> Class File
-classFile (Class {..}) = Class {
+classDirect2File :: Class Direct -> Class File
+classDirect2File (Class {..}) = Class {
     magic = 0xCAFEBABE,
     minorVersion = 0,
     majorVersion = 50,
@@ -70,18 +70,18 @@ classFile (Class {..}) = Class {
     interfacesCount = fromIntegral (length interfaces),
     interfaces = map (force "ifaces" . poolIndex poolInfo) interfaces,
     classFieldsCount = fromIntegral (length classFields),
-    classFields = map (fieldInfo poolInfo) classFields,
+    classFields = map (fieldDirect2File poolInfo) classFields,
     classMethodsCount = fromIntegral (length classMethods),
-    classMethods = map (methodInfo poolInfo) classMethods,
+    classMethods = map (methodDirect2File poolInfo) classMethods,
     classAttributesCount = fromIntegral $ arsize classAttributes,
     classAttributes = to (arlist classAttributes) }
   where
-    poolInfo = toCPInfo constsPool
+    poolInfo = poolDirect2File constsPool
     to :: [(B.ByteString, B.ByteString)] -> Attributes File
     to pairs = AP (map (attrInfo poolInfo) pairs)
 
-toCPInfo :: Pool Direct -> Pool File
-toCPInfo pool = result
+poolDirect2File :: Pool Direct -> Pool File
+poolDirect2File pool = result
   where
     result = M.map cpInfo pool
 
@@ -139,8 +139,8 @@ poolNTIndex list x@(NameType n t) = do
       | (ni == n') && (ti == t') = True
     check _ _ _                  = False
 
-fieldInfo :: Pool File -> Field Direct -> Field File
-fieldInfo pool (Field {..}) = Field {
+fieldDirect2File :: Pool File -> Field Direct -> Field File
+fieldDirect2File pool (Field {..}) = Field {
     fieldAccessFlags = access2word16 fieldAccessFlags,
     fieldName = force "field name" $ poolIndex pool fieldName,
     fieldSignature = force "signature" $ poolIndex pool (encode fieldSignature),
@@ -150,8 +150,8 @@ fieldInfo pool (Field {..}) = Field {
     to :: [(B.ByteString, B.ByteString)] -> Attributes File
     to pairs = AP (map (attrInfo pool) pairs)
 
-methodInfo :: Pool File -> Method Direct -> Method File
-methodInfo pool (Method {..}) = Method {
+methodDirect2File :: Pool File -> Method Direct -> Method File
+methodDirect2File pool (Method {..}) = Method {
     methodAccessFlags = access2word16 methodAccessFlags,
     methodName = force "method name" $ poolIndex pool methodName,
     methodSignature = force "method sig" $ poolIndex pool (encode methodSignature),
@@ -167,8 +167,8 @@ attrInfo pool (name, value) = Attribute {
   attributeLength = fromIntegral (B.length value),
   attributeValue = value }
 
-constantPoolArray :: Pool File -> Pool Direct
-constantPoolArray ps = pool
+poolFile2Direct :: Pool File -> Pool Direct
+poolFile2Direct ps = pool
   where
     pool :: Pool Direct
     pool = M.map convert ps
@@ -193,8 +193,8 @@ constantPoolArray ps = pool
     convert (CUTF8 bs) = CUTF8 bs
     convert (CUnicode bs) = CUnicode bs
 
-convertAccess :: AccessFlags File -> AccessFlags Direct
-convertAccess w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
+accessFile2Direct :: AccessFlags File -> AccessFlags Direct
+accessFile2Direct w = S.fromList $ concat $ zipWith (\i f -> if testBit w i then [f] else []) [0..] $ [
    ACC_PUBLIC,
    ACC_PRIVATE,
    ACC_PROTECTED,
@@ -213,24 +213,24 @@ access2word16 fs = bitsOr $ map toBit $ S.toList fs
     bitsOr = foldl (.|.) 0
     toBit f = 1 `shiftL` (fromIntegral $ fromEnum f)
 
-convertField :: Pool Direct -> Field File -> Field Direct
-convertField pool (Field {..}) = Field {
-  fieldAccessFlags = convertAccess fieldAccessFlags,
+fieldFile2Direct :: Pool Direct -> Field File -> Field Direct
+fieldFile2Direct pool (Field {..}) = Field {
+  fieldAccessFlags = accessFile2Direct fieldAccessFlags,
   fieldName = getString $ pool ! fieldName,
   fieldSignature = decode $ getString $ pool ! fieldSignature,
   fieldAttributesCount = fromIntegral (apsize fieldAttributes),
-  fieldAttributes = convertAttrs pool fieldAttributes }
+  fieldAttributes = attributesFile2Direct pool fieldAttributes }
 
-convertMethod :: Pool Direct -> Method File -> Method Direct
-convertMethod pool (Method {..}) = Method {
-  methodAccessFlags = convertAccess methodAccessFlags,
+methodFile2Direct :: Pool Direct -> Method File -> Method Direct
+methodFile2Direct pool (Method {..}) = Method {
+  methodAccessFlags = accessFile2Direct methodAccessFlags,
   methodName = getString $ pool ! methodName,
   methodSignature = decode $ getString $ pool ! methodSignature,
   methodAttributesCount = fromIntegral (apsize methodAttributes),
-  methodAttributes = convertAttrs pool methodAttributes }
+  methodAttributes = attributesFile2Direct pool methodAttributes }
 
-convertAttrs :: Pool Direct -> Attributes File -> Attributes Direct
-convertAttrs pool (AP attrs) = AR (M.fromList $ map go attrs)
+attributesFile2Direct :: Pool Direct -> Attributes File -> Attributes Direct
+attributesFile2Direct pool (AP attrs) = AR (M.fromList $ map go attrs)
   where
     go :: Attribute -> (B.ByteString, B.ByteString)
     go (Attribute {..}) = (getString $ pool ! attributeName,

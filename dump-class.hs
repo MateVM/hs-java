@@ -15,7 +15,7 @@ main = do
   case args of
     [clspath] -> do
       clsFile <- decodeFile clspath
-      putStrLn $ showListIx $ M.elems $ constsPool (clsFile :: Class Pointers)
+      putStrLn $ showListIx $ M.elems $ constsPool (clsFile :: Class File)
       cls <- parseClassFile clspath
       dumpClass cls
     _ -> error "Synopsis: dump-class File.class"

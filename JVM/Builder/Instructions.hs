@@ -1,4 +1,6 @@
 -- | This module exports shortcuts for some of JVM instructions (which are defined in JVM.Assembler).
+-- These functions get Constants, put them into constants pool and generate instruction using index
+-- of constant in the pool.
 module JVM.Builder.Instructions where
 
 import Data.Word
@@ -45,6 +47,7 @@ bipush ::  Word8 -> Generate ()
 bipush x = i0 (BIPUSH x)
 sipush ::  Word16 -> Generate ()
 sipush x = i0 (SIPUSH x)
+
 ldc1 ::  Constant Resolved -> Generate ()
 ldc1 x = i8 LDC1 x
 ldc2 ::  Constant Resolved -> Generate ()
@@ -253,6 +256,14 @@ i2s ::  Generate ()
 i2s  = i0 I2S 
 lcmp ::  Generate ()
 lcmp = i0 LCMP
+
+-- | Wide instruction
+wide :: (Word8 -> Instruction) -> Constant Resolved -> Generate ()
+wide fn c = do
+  ix <- addToPool c
+  let ix0 = fromIntegral (ix `div` 0x100) :: Word8
+      ix1 = fromIntegral (ix `mod` 0x100) :: Word8
+  i0 (WIDE ix0 $ fn ix1)
 
 new ::  B.ByteString -> Generate ()
 new cls =

@@ -23,6 +23,7 @@ module JVM.ClassFile
    -- * Misc
    HasSignature (..), HasAttributes (..),
    NameType (..),
+   toString,
    className,
    apsize, arsize, arlist
   )
@@ -217,6 +218,11 @@ data Class stage = Class {
   classAttributesCount :: Word16,    -- ^ Number of class attributes
   classAttributes :: Attributes stage -- ^ Class attributes
   }
+
+deriving instance Eq (Class File)
+deriving instance Eq (Class Direct)
+deriving instance Show (Class File)
+deriving instance Show (Class Direct)
 
 deriving instance Eq (Constant File)
 deriving instance Eq (Constant Direct)

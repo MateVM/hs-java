@@ -8,12 +8,9 @@ module JVM.Common
   byteString
   ) where
 
-import Codec.Binary.UTF8.String hiding (encode, decode)
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
-import Data.Char
-import Data.String
 import qualified Data.Map as M
 import Data.Default
 
@@ -24,9 +21,6 @@ instance Default B.ByteString where
 
 instance Default Word16 where
   def = 0
-
-instance IsString B.ByteString where
-  fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s
 
 toCharList :: B.ByteString -> [Int]
 toCharList bstr = map fromIntegral $ B.unpack bstr

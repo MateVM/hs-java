@@ -1,9 +1,5 @@
 module Java.META.Spec where
 
-import Control.Monad
-import Control.Monad.Error
-import qualified Data.Map as M
-import Data.Map ((!))
 import Data.Char (toLower)
 
 import Java.META.Types

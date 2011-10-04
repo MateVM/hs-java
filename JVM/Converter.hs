@@ -18,6 +18,7 @@ import Data.Bits
 import Data.Binary
 import Data.Default () -- import instances only
 import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Char8 ()
 import qualified Data.Set as S
 import qualified Data.Map as M
 

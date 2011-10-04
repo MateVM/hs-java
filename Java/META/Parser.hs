@@ -1,6 +1,7 @@
 
 module Java.META.Parser
-  (parseMetaFile) where
+  (parseMeta,
+   parseMetaFile) where
 
 import qualified Data.Map as M
 import Text.Parsec
@@ -59,3 +60,7 @@ parseMetaFile :: FilePath -> IO (Either ParseError META)
 parseMetaFile path = do
   str <- readFile path
   return $ parse pMETA path (str ++ "\n\n")
+
+parseMeta :: String -> Either ParseError META
+parseMeta str = parse pMETA "<META>" (str ++ "\n\n")
+

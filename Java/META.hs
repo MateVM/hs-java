@@ -3,8 +3,13 @@
 module Java.META
   (module Java.META.Types,
    module Java.META.Parser,
-   module Java.META.Spec)
+   module Java.META.Spec,
+   Manifest (..),
+   ManifestEntry (..))
   where
+
+import qualified Data.Map as M
+import Data.Map ((!))
 
 import Java.META.Types
 import Java.META.Parser

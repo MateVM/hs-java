@@ -31,13 +31,18 @@ library
                    Java.ClassPath
                    Java.ClassPath.Types
                    Java.ClassPath.Common
+                   Java.JAR
                    Java.JAR.Archive
+                   Java.META
+                   Java.META.Types
+                   Java.META.Spec
+                   Java.META.Parser
 
   Build-Depends:  base >= 3 && <= 5, containers, binary,
                   mtl, directory, filepath, utf8-string, array,
                   bytestring, data-binary-ieee754, binary-state,
                   control-monad-exception, data-default, MissingH,
-                  LibZip, Glob
+                  LibZip, Glob, parsec >= 3 && <4
 
   ghc-options: -fwarn-unused-imports
 

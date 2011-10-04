@@ -1,4 +1,5 @@
-
+-- | This module declares functions and data types for
+-- JAR meta-information classes, such as MANIFEST.MF etc.
 module Java.META
   (module Java.META.Types,
    module Java.META.Parser,
@@ -9,6 +10,7 @@ import Java.META.Types
 import Java.META.Parser
 import Java.META.Spec
 
+-- | JAR MANIFEST.MF
 data Manifest = Manifest {
   manifestVersion :: String,
   createdBy :: String,
@@ -19,6 +21,7 @@ data Manifest = Manifest {
   manifestEntries :: [ManifestEntry]}
   deriving (Eq, Show)
 
+-- | Manifest entry
 data ManifestEntry = ManifestEntry {
   meName :: String,
   meSealed :: Bool,

@@ -1,5 +1,6 @@
 
-module Java.META.Parser where
+module Java.META.Parser
+  (parseMetaFile) where
 
 import qualified Data.Map as M
 import Text.Parsec

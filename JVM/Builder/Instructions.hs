@@ -10,294 +10,294 @@ import JVM.ClassFile
 import JVM.Assembler
 import JVM.Builder.Monad
 
-nop ::  Generate ()
+nop :: Generator g => g ()
 nop = i0 NOP
-aconst_null ::  Generate ()
+aconst_null :: Generator g => g ()
 aconst_null = i0 ACONST_NULL
-iconst_m1 ::  Generate ()
+iconst_m1 :: Generator g => g ()
 iconst_m1 = i0 ICONST_M1
-iconst_0 ::  Generate ()
+iconst_0 :: Generator g => g ()
 iconst_0 = i0 ICONST_0
-iconst_1 ::  Generate ()
+iconst_1 :: Generator g => g ()
 iconst_1 = i0 ICONST_1
-iconst_2 ::  Generate ()
+iconst_2 :: Generator g => g ()
 iconst_2 = i0 ICONST_2
-iconst_3 ::  Generate ()
+iconst_3 :: Generator g => g ()
 iconst_3 = i0 ICONST_3
-iconst_4 ::  Generate ()
+iconst_4 :: Generator g => g ()
 iconst_4 = i0 ICONST_4
-iconst_5 ::  Generate ()
+iconst_5 :: Generator g => g ()
 iconst_5 = i0 ICONST_5
-lconst_0 ::  Generate ()
+lconst_0 :: Generator g => g ()
 lconst_0 = i0 LCONST_0
-lconst_1 ::  Generate ()
+lconst_1 :: Generator g => g ()
 lconst_1 = i0 LCONST_1
-fconst_0 ::  Generate ()
+fconst_0 :: Generator g => g ()
 fconst_0 = i0 FCONST_0
-fconst_1 ::  Generate ()
+fconst_1 :: Generator g => g ()
 fconst_1 = i0 FCONST_1
-fconst_2 ::  Generate ()
+fconst_2 :: Generator g => g ()
 fconst_2 = i0 FCONST_2
-dconst_0 ::  Generate ()
+dconst_0 :: Generator g => g ()
 dconst_0 = i0 DCONST_0
-dconst_1 ::  Generate ()
+dconst_1 :: Generator g => g ()
 dconst_1 = i0 DCONST_1
 
-bipush ::  Word8 -> Generate ()
+bipush :: Generator g => Word8 -> g ()
 bipush x = i0 (BIPUSH x)
-sipush ::  Word16 -> Generate ()
+sipush :: Generator g => Word16 -> g ()
 sipush x = i0 (SIPUSH x)
 
-ldc1 ::  Constant Direct -> Generate ()
+ldc1 :: Generator g => Constant Direct -> g ()
 ldc1 x = i8 LDC1 x
-ldc2 ::  Constant Direct -> Generate ()
+ldc2 :: Generator g => Constant Direct -> g ()
 ldc2 x = i1 LDC2 x
-ldc2w ::  Constant Direct -> Generate ()
+ldc2w :: Generator g => Constant Direct -> g ()
 ldc2w x = i1 LDC2W x
-iload ::  Constant Direct -> Generate ()
+iload :: Generator g => Constant Direct -> g ()
 iload x = i8 ILOAD x
-lload ::  Constant Direct -> Generate ()
+lload :: Generator g => Constant Direct -> g ()
 lload x = i8 LLOAD x
-fload ::  Constant Direct -> Generate ()
+fload :: Generator g => Constant Direct -> g ()
 fload x = i8 FLOAD x
-dload ::  Constant Direct -> Generate ()
+dload :: Generator g => Constant Direct -> g ()
 dload x = i8 DLOAD x
-aload ::  Constant Direct -> Generate ()
+aload :: Generator g => Constant Direct -> g ()
 aload x = i8 ALOAD x
 
-iload_ ::  IMM -> Generate ()
+iload_ :: Generator g => IMM -> g ()
 iload_ x = i0 (ILOAD_ x)
-lload_ ::  IMM -> Generate ()
+lload_ :: Generator g => IMM -> g ()
 lload_ x = i0 (LLOAD_ x)
-fload_ ::  IMM -> Generate ()
+fload_ :: Generator g => IMM -> g ()
 fload_ x = i0 (FLOAD_ x)
-dload_ ::  IMM -> Generate ()
+dload_ :: Generator g => IMM -> g ()
 dload_ x = i0 (DLOAD_ x)
-aload_ ::  IMM -> Generate ()
+aload_ :: Generator g => IMM -> g ()
 aload_ x = i0 (ALOAD_ x)
 
-iaload ::  Generate ()
+iaload :: Generator g => g ()
 iaload = i0 IALOAD
-laload ::  Generate ()
+laload :: Generator g => g ()
 laload = i0 LALOAD
-faload ::  Generate ()
+faload :: Generator g => g ()
 faload = i0 FALOAD
-daload ::  Generate ()
+daload :: Generator g => g ()
 daload = i0 DALOAD
-aaload ::  Generate ()
+aaload :: Generator g => g ()
 aaload = i0 AALOAD
-caload ::  Generate ()
+caload :: Generator g => g ()
 caload = i0 CALOAD
-saload ::  Generate ()
+saload :: Generator g => g ()
 saload = i0 SALOAD
 
-istore ::  Constant Direct -> Generate ()
+istore :: Generator g => Constant Direct -> g ()
 istore x = i8 ISTORE x
-lstore ::  Constant Direct -> Generate ()
+lstore :: Generator g => Constant Direct -> g ()
 lstore x = i8 LSTORE x
-fstore ::  Constant Direct -> Generate ()
+fstore :: Generator g => Constant Direct -> g ()
 fstore x = i8 FSTORE x
-dstore ::  Constant Direct -> Generate ()
+dstore :: Generator g => Constant Direct -> g ()
 dstore x = i8 DSTORE x
-astore ::  Constant Direct -> Generate ()
+astore :: Generator g => Constant Direct -> g ()
 astore x = i8 ASTORE x
 
-istore_ ::  Word8 -> Generate ()
+istore_ :: Generator g => Word8 -> g ()
 istore_ x = i0 (ISTORE x)
-lstore_ ::  Word8 -> Generate ()
+lstore_ :: Generator g => Word8 -> g ()
 lstore_ x = i0 (LSTORE x)
-fstore_ ::  Word8 -> Generate ()
+fstore_ :: Generator g => Word8 -> g ()
 fstore_ x = i0 (FSTORE x)
-dstore_ ::  Word8 -> Generate ()
+dstore_ :: Generator g => Word8 -> g ()
 dstore_ x = i0 (DSTORE x)
-astore_ ::  Word8 -> Generate ()
+astore_ :: Generator g => Word8 -> g ()
 astore_ x = i0 (ASTORE x)
 
-iastore ::  Generate ()
+iastore :: Generator g => g ()
 iastore = i0 IASTORE
-lastore ::  Generate ()
+lastore :: Generator g => g ()
 lastore = i0 LASTORE
-fastore ::  Generate ()
+fastore :: Generator g => g ()
 fastore = i0 FASTORE
-dastore ::  Generate ()
+dastore :: Generator g => g ()
 dastore = i0 DASTORE
-aastore ::  Generate ()
+aastore :: Generator g => g ()
 aastore = i0 AASTORE
-bastore ::  Generate ()
+bastore :: Generator g => g ()
 bastore = i0 BASTORE
-castore ::  Generate ()
+castore :: Generator g => g ()
 castore = i0 CASTORE
-sastore ::  Generate ()
+sastore :: Generator g => g ()
 sastore = i0 SASTORE
 
-pop ::  Generate ()
+pop :: Generator g => g ()
 pop     = i0 POP    
-pop2 ::  Generate ()
+pop2 :: Generator g => g ()
 pop2    = i0 POP2   
-dup ::  Generate ()
+dup :: Generator g => g ()
 dup     = i0 DUP    
-dup_x1 ::  Generate ()
+dup_x1 :: Generator g => g ()
 dup_x1  = i0 DUP_X1 
-dup_x2 ::  Generate ()
+dup_x2 :: Generator g => g ()
 dup_x2  = i0 DUP_X2 
-dup2 ::  Generate ()
+dup2 :: Generator g => g ()
 dup2    = i0 DUP2   
-dup2_x1 ::  Generate ()
+dup2_x1 :: Generator g => g ()
 dup2_x1 = i0 DUP2_X1
-dup2_x2 ::  Generate ()
+dup2_x2 :: Generator g => g ()
 dup2_x2 = i0 DUP2_X2
-swap ::  Generate ()
+swap :: Generator g => g ()
 swap    = i0 SWAP   
-iadd ::  Generate ()
+iadd :: Generator g => g ()
 iadd    = i0 IADD   
-ladd ::  Generate ()
+ladd :: Generator g => g ()
 ladd    = i0 LADD   
-fadd ::  Generate ()
+fadd :: Generator g => g ()
 fadd    = i0 FADD   
-dadd ::  Generate ()
+dadd :: Generator g => g ()
 dadd    = i0 DADD   
-isub ::  Generate ()
+isub :: Generator g => g ()
 isub    = i0 ISUB   
-lsub ::  Generate ()
+lsub :: Generator g => g ()
 lsub    = i0 LSUB   
-fsub ::  Generate ()
+fsub :: Generator g => g ()
 fsub    = i0 FSUB   
-dsub ::  Generate ()
+dsub :: Generator g => g ()
 dsub    = i0 DSUB   
-imul ::  Generate ()
+imul :: Generator g => g ()
 imul    = i0 IMUL   
-lmul ::  Generate ()
+lmul :: Generator g => g ()
 lmul    = i0 LMUL   
-fmul ::  Generate ()
+fmul :: Generator g => g ()
 fmul    = i0 FMUL   
-dmul ::  Generate ()
+dmul :: Generator g => g ()
 dmul    = i0 DMUL   
-idiv ::  Generate ()
+idiv :: Generator g => g ()
 idiv    = i0 IDIV   
-ldiv ::  Generate ()
+ldiv :: Generator g => g ()
 ldiv    = i0 LDIV   
-fdiv ::  Generate ()
+fdiv :: Generator g => g ()
 fdiv    = i0 FDIV   
-ddiv ::  Generate ()
+ddiv :: Generator g => g ()
 ddiv    = i0 DDIV   
-irem ::  Generate ()
+irem :: Generator g => g ()
 irem    = i0 IREM   
-lrem ::  Generate ()
+lrem :: Generator g => g ()
 lrem    = i0 LREM   
-frem ::  Generate ()
+frem :: Generator g => g ()
 frem    = i0 FREM   
-drem ::  Generate ()
+drem :: Generator g => g ()
 drem    = i0 DREM   
-ineg ::  Generate ()
+ineg :: Generator g => g ()
 ineg    = i0 INEG   
-lneg ::  Generate ()
+lneg :: Generator g => g ()
 lneg    = i0 LNEG   
-fneg ::  Generate ()
+fneg :: Generator g => g ()
 fneg    = i0 FNEG   
-dneg ::  Generate ()
+dneg :: Generator g => g ()
 dneg    = i0 DNEG   
-ishl ::  Generate ()
+ishl :: Generator g => g ()
 ishl    = i0 ISHL   
-lshl ::  Generate ()
+lshl :: Generator g => g ()
 lshl    = i0 LSHL   
-ishr ::  Generate ()
+ishr :: Generator g => g ()
 ishr    = i0 ISHR   
-lshr ::  Generate ()
+lshr :: Generator g => g ()
 lshr    = i0 LSHR   
-iushr ::  Generate ()
+iushr :: Generator g => g ()
 iushr   = i0 IUSHR  
-lushr ::  Generate ()
+lushr :: Generator g => g ()
 lushr   = i0 LUSHR  
-iand ::  Generate ()
+iand :: Generator g => g ()
 iand    = i0 IAND   
-land ::  Generate ()
+land :: Generator g => g ()
 land    = i0 LAND   
-ior ::  Generate ()
+ior :: Generator g => g ()
 ior     = i0 IOR    
-lor ::  Generate ()
+lor :: Generator g => g ()
 lor     = i0 LOR    
-ixor ::  Generate ()
+ixor :: Generator g => g ()
 ixor    = i0 IXOR   
-lxor ::  Generate ()
+lxor :: Generator g => g ()
 lxor    = i0 LXOR   
 
-iinc ::  Word8 -> Word8 -> Generate ()
+iinc :: Generator g => Word8 -> Word8 -> g ()
 iinc x y = i0 (IINC x y)
 
-i2l ::  Generate ()
+i2l :: Generator g => g ()
 i2l  = i0 I2L 
-i2f ::  Generate ()
+i2f :: Generator g => g ()
 i2f  = i0 I2F 
-i2d ::  Generate ()
+i2d :: Generator g => g ()
 i2d  = i0 I2D 
-l2i ::  Generate ()
+l2i :: Generator g => g ()
 l2i  = i0 L2I 
-l2f ::  Generate ()
+l2f :: Generator g => g ()
 l2f  = i0 L2F 
-l2d ::  Generate ()
+l2d :: Generator g => g ()
 l2d  = i0 L2D 
-f2i ::  Generate ()
+f2i :: Generator g => g ()
 f2i  = i0 F2I 
-f2l ::  Generate ()
+f2l :: Generator g => g ()
 f2l  = i0 F2L 
-f2d ::  Generate ()
+f2d :: Generator g => g ()
 f2d  = i0 F2D 
-d2i ::  Generate ()
+d2i :: Generator g => g ()
 d2i  = i0 D2I 
-d2l ::  Generate ()
+d2l :: Generator g => g ()
 d2l  = i0 D2L 
-d2f ::  Generate ()
+d2f :: Generator g => g ()
 d2f  = i0 D2F 
-i2b ::  Generate ()
+i2b :: Generator g => g ()
 i2b  = i0 I2B 
-i2c ::  Generate ()
+i2c :: Generator g => g ()
 i2c  = i0 I2C 
-i2s ::  Generate ()
+i2s :: Generator g => g ()
 i2s  = i0 I2S 
-lcmp ::  Generate ()
+lcmp :: Generator g => g ()
 lcmp = i0 LCMP
 
 -- | Wide instruction
-wide :: (Word8 -> Instruction) -> Constant Direct -> Generate ()
+wide :: Generator g => (Word8 -> Instruction) -> Constant Direct -> g ()
 wide fn c = do
   ix <- addToPool c
   let ix0 = fromIntegral (ix `div` 0x100) :: Word8
       ix1 = fromIntegral (ix `mod` 0x100) :: Word8
   i0 (WIDE ix0 $ fn ix1)
 
-new ::  B.ByteString -> Generate ()
+new :: Generator g => B.ByteString -> g ()
 new cls =
   i1 NEW (CClass cls)
 
-newArray ::  ArrayType -> Generate ()
+newArray :: Generator g => ArrayType -> g ()
 newArray t =
   i0 (NEWARRAY $ atype2byte t)
 
-allocNewArray ::  B.ByteString -> Generate ()
+allocNewArray :: Generator g => B.ByteString -> g ()
 allocNewArray cls =
   i1 ANEWARRAY (CClass cls)
 
-invokeVirtual ::  B.ByteString -> NameType Method -> Generate ()
+invokeVirtual :: Generator g => B.ByteString -> NameType Method -> g ()
 invokeVirtual cls sig =
   i1 INVOKEVIRTUAL (CMethod cls sig)
 
-invokeStatic ::  B.ByteString -> NameType Method -> Generate ()
+invokeStatic :: Generator g => B.ByteString -> NameType Method -> g ()
 invokeStatic cls sig =
   i1 INVOKESTATIC (CMethod cls sig)
 
-invokeSpecial ::  B.ByteString -> NameType Method -> Generate ()
+invokeSpecial :: Generator g => B.ByteString -> NameType Method -> g ()
 invokeSpecial cls sig =
   i1 INVOKESPECIAL (CMethod cls sig)
 
-getStaticField ::  B.ByteString -> NameType Field -> Generate ()
+getStaticField :: Generator g => B.ByteString -> NameType Field -> g ()
 getStaticField cls sig =
   i1 GETSTATIC (CField cls sig)
 
-loadString ::  B.ByteString -> Generate ()
+loadString :: Generator g => B.ByteString -> g ()
 loadString str =
   i8 LDC1 (CString str)
 
-allocArray ::  B.ByteString -> Generate ()
+allocArray :: Generator g => B.ByteString -> g ()
 allocArray cls =
   i1 ANEWARRAY (CClass cls)
 

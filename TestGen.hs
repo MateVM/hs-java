@@ -11,7 +11,7 @@ import Java.ClassPath
 import qualified Java.Lang
 import qualified Java.IO
 
-test :: Generate ()
+test :: GenerateIO ()
 test = do
   withClassPath $ do
       -- Add current directory (with Hello.class) to ClassPath
@@ -63,6 +63,6 @@ test = do
 
 main :: IO ()
 main = do
-  testClass <- generate [] "Test" test
+  testClass <- generateIO [] "Test" test
   B.writeFile "Test.class" (encodeClass testClass)
 

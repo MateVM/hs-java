@@ -1,24 +1,26 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 
+import Control.Monad.Exception
 import qualified Data.ByteString.Lazy as B
 
 import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
 import JVM.Builder
+import JVM.Exceptions
 import Java.ClassPath
 
 import qualified Java.Lang
 import qualified Java.IO
 
-test :: GenerateIO ()
+test :: (Throws ENotFound e, Throws ENotLoaded e, Throws UnexpectedEndMethod e) => GenerateIO e ()
 test = do
   withClassPath $ do
       -- Add current directory (with Hello.class) to ClassPath
       addDirectory "."
 
-  -- Load method signature: Hello.hello()
-  helloJava <- getClassMethod "./Hello" "hello"
+  -- Load method signature: Hello.hello() from Hello.class
+  helloJava <- getClassMethod "Hello" "hello"
 
   -- Initializer method. Just calls java.lang.Object.<init>
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do

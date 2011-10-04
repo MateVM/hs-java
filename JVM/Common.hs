@@ -8,7 +8,7 @@ module JVM.Common
   byteString
   ) where
 
-import Codec.Binary.UTF8.String (encodeString, decodeString)
+import Codec.Binary.UTF8.String (encodeString)
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B

@@ -53,6 +53,7 @@ emptyGState = GState {
 -- | Generate monad
 type Generate a = StateT GState IO a
 
+-- | Update ClassPath
 withClassPath :: ClassPath () -> Generate ()
 withClassPath cp = do
   res <- liftIO $ execClassPath cp
@@ -202,6 +203,7 @@ newMethod flags name args ret gen = do
   endMethod
   return (NameType name sig)
 
+-- | Get a class from current ClassPath
 getClass :: String -> Generate (Class Direct)
 getClass name = do
   cp <- St.gets classPath
@@ -213,6 +215,7 @@ getClass name = do
     Just (LoadedJAR _ c) -> return c
     Nothing -> fail $ "No such class in ClassPath: " ++ name
 
+-- | Get class field signature from current ClassPath
 getClassField :: String -> B.ByteString -> Generate (NameType Field)
 getClassField clsName fldName = do
   cls <- getClass clsName
@@ -220,6 +223,7 @@ getClassField clsName fldName = do
     Just fld -> return (fieldNameType fld)
     Nothing  -> fail $ "No such field in class " ++ clsName ++ ": " ++ toString fldName
 
+-- | Get class method signature from current ClassPath
 getClassMethod :: String -> B.ByteString -> Generate (NameType Method)
 getClassMethod clsName mName = do
   cls <- getClass clsName
@@ -253,10 +257,8 @@ generate :: [Tree CPEntry] -> B.ByteString -> Generate () -> IO (Class Direct)
 generate cp name gen = do
   let generator = do
         initClass name
-        st <- St.get
-        St.put $ st {classPath = cp}
         gen
-  res <- execStateT generator emptyGState
+  res <- execStateT generator (emptyGState {classPath = cp})
   let code = genCode res
       d = defaultClass :: Class Direct
   return $ d {

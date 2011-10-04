@@ -47,9 +47,7 @@ test = do
 
   return ()
 
-testClass ::  Class Direct
-testClass = generate "Test" test
-
 main = do
+  testClass <- generate [] "Test" test
   B.writeFile "Test.class" (encodeClass testClass)
 

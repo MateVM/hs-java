@@ -23,6 +23,7 @@ import qualified Data.ByteString.Lazy as B
 import JVM.Common ()  -- import instances only
 import JVM.ClassFile
 import JVM.Assembler
+import Java.ClassPath
 
 -- | Generator state
 data GState = GState {
@@ -31,7 +32,8 @@ data GState = GState {
   doneMethods :: [Method Direct],         -- ^ Already generated class methods
   currentMethod :: Maybe (Method Direct), -- ^ Current method
   stackSize :: Word16,                      -- ^ Maximum stack size for current method
-  locals :: Word16                          -- ^ Maximum number of local variables for current method
+  locals :: Word16,                         -- ^ Maximum number of local variables for current method
+  classPath :: [Tree CPEntry]
   }
   deriving (Eq,Show)
 
@@ -43,10 +45,17 @@ emptyGState = GState {
   doneMethods = [],
   currentMethod = Nothing,
   stackSize = 496,
-  locals = 0 }
+  locals = 0,
+  classPath = []}
 
 -- | Generate monad
-type Generate a = State GState a
+type Generate a = StateT GState IO a
+
+withClassPath :: ClassPath () -> Generate ()
+withClassPath cp = do
+  res <- liftIO $ execClassPath cp
+  st <- St.get
+  St.put $ st {classPath = res}
 
 -- | Append a constant to pool
 appendPool :: Constant Direct -> Pool Direct -> (Pool Direct, Word16)
@@ -213,15 +222,17 @@ initClass name = do
   addToPool (CString "Code")
 
 -- | Generate a class
-generate :: B.ByteString -> Generate () -> Class Direct
-generate name gen =
+generate :: [Tree CPEntry] -> B.ByteString -> Generate () -> IO (Class Direct)
+generate cp name gen = do
   let generator = do
         initClass name
+        st <- St.get
+        St.put $ st {classPath = cp}
         gen
-      res = execState generator emptyGState
-      code = genCode res
+  res <- execStateT generator emptyGState
+  let code = genCode res
       d = defaultClass :: Class Direct
-  in  d {
+  return $ d {
         constsPoolSize = fromIntegral $ M.size (currentPool res),
         constsPool = currentPool res,
         accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],

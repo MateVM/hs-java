@@ -1,17 +1,18 @@
-{-# LANGUAGE FlexibleContexts, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, TypeFamilies, OverloadedStrings, TypeSynonymInstances, FlexibleInstances #-}
 -- | This module defines Generate monad, which helps generating JVM code and
 -- creating Java class constants pool.
 module JVM.Builder.Monad
   (GState (..),
    emptyGState,
-   Generate,
+   Generator (..),
+   Generate, GenerateIO,
    addToPool,
    i0, i1, i8,
    newMethod,
    setStackSize, setMaxLocals,
    withClassPath,
    getClassField, getClassMethod,
-   generate
+   generate, generateIO
   ) where
 
 import Control.Monad.State as St
@@ -50,11 +51,19 @@ emptyGState = GState {
   locals = 0,
   classPath = []}
 
+class (Monad m, MonadState GState m) => Generator m where
+
 -- | Generate monad
-type Generate a = StateT GState IO a
+type GenerateIO a = StateT GState IO a
+
+type Generate a = State GState a
+
+instance Generator (StateT GState IO) where
+
+instance Generator (State GState) where
 
 -- | Update ClassPath
-withClassPath :: ClassPath () -> Generate ()
+withClassPath :: ClassPath () -> GenerateIO ()
 withClassPath cp = do
   res <- liftIO $ execClassPath cp
   st <- St.get
@@ -68,7 +77,7 @@ appendPool c pool =
   in  (pool', size)
 
 -- | Add a constant to pool
-addItem :: Constant Direct -> Generate Word16
+addItem :: (Generator g) => Constant Direct -> g Word16
 addItem c = do
   pool <- St.gets currentPool
   case lookupPool c pool of
@@ -84,7 +93,7 @@ lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
 lookupPool c pool =
   fromIntegral `fmap` findIndex (== c) (M.elems pool)
 
-addNT :: HasSignature a => NameType a -> Generate Word16
+addNT :: (Generator g, HasSignature a) => NameType a -> g Word16
 addNT (NameType name sig) = do
   let bsig = encode sig
   x <- addItem (CNameType name bsig)
@@ -92,13 +101,13 @@ addNT (NameType name sig) = do
   addItem (CUTF8 bsig)
   return x
 
-addSig :: MethodSignature -> Generate Word16
+addSig :: (Generator g) => MethodSignature -> g Word16
 addSig c@(MethodSignature args ret) = do
   let bsig = encode c
   addItem (CUTF8 bsig)
 
 -- | Add a constant into pool
-addToPool :: Constant Direct -> Generate Word16
+addToPool :: (Generator g) => Constant Direct -> g Word16
 addToPool c@(CClass str) = do
   addItem (CUTF8 str)
   addItem c
@@ -123,42 +132,42 @@ addToPool c@(CNameType name sig) = do
   addItem c
 addToPool c = addItem c
 
-putInstruction :: Instruction -> Generate ()
+putInstruction :: (Generator g) => Instruction -> g ()
 putInstruction instr = do
   st <- St.get
   let code = generated st
   St.put $ st {generated = code ++ [instr]}
 
 -- | Generate one (zero-arguments) instruction
-i0 :: Instruction -> Generate ()
+i0 :: (Generator g) => Instruction -> g ()
 i0 = putInstruction
 
 -- | Generate one one-argument instruction
-i1 :: (Word16 -> Instruction) -> Constant Direct -> Generate ()
+i1 :: (Generator g) => (Word16 -> Instruction) -> Constant Direct -> g ()
 i1 fn c = do
   ix <- addToPool c
   i0 (fn ix)
 
 -- | Generate one one-argument instruction
-i8 :: (Word8 -> Instruction) -> Constant Direct -> Generate ()
+i8 :: (Generator g) => (Word8 -> Instruction) -> Constant Direct -> g ()
 i8 fn c = do
   ix <- addToPool c
   i0 (fn $ fromIntegral ix)
 
 -- | Set maximum stack size for current method
-setStackSize :: Word16 -> Generate ()
+setStackSize :: (Generator g) => Word16 -> g ()
 setStackSize n = do
   st <- St.get
   St.put $ st {stackSize = n}
 
 -- | Set maximum number of local variables for current method
-setMaxLocals :: Word16 -> Generate ()
+setMaxLocals :: (Generator g) => Word16 -> g ()
 setMaxLocals n = do
   st <- St.get
   St.put $ st {locals = n}
 
 -- | Start generating new method
-startMethod :: [AccessFlag] -> B.ByteString -> MethodSignature -> Generate ()
+startMethod :: (Generator g) => [AccessFlag] -> B.ByteString -> MethodSignature -> g ()
 startMethod flags name sig = do
   addToPool (CString name)
   addSig sig
@@ -175,7 +184,7 @@ startMethod flags name sig = do
                currentMethod = Just method }
 
 -- | End of method generation
-endMethod :: Generate ()
+endMethod :: (Generator g) => g ()
 endMethod = do
   m <- St.gets currentMethod
   code <- St.gets genCode
@@ -190,12 +199,13 @@ endMethod = do
                    doneMethods = doneMethods st ++ [method']}
 
 -- | Generate new method
-newMethod :: [AccessFlag]               -- ^ Access flags for method (public, static etc)
+newMethod :: (Generator g)
+          => [AccessFlag]               -- ^ Access flags for method (public, static etc)
           -> B.ByteString               -- ^ Method name
           -> [ArgumentSignature]        -- ^ Signatures of method arguments
           -> ReturnSignature            -- ^ Method return signature
-          -> Generate ()                -- ^ Generator for method code
-          -> Generate (NameType Method)
+          -> g ()                -- ^ Generator for method code
+          -> g (NameType Method)
 newMethod flags name args ret gen = do
   let sig = MethodSignature args ret
   startMethod flags name sig
@@ -204,7 +214,7 @@ newMethod flags name args ret gen = do
   return (NameType name sig)
 
 -- | Get a class from current ClassPath
-getClass :: String -> Generate (Class Direct)
+getClass :: String -> GenerateIO (Class Direct)
 getClass name = do
   cp <- St.gets classPath
   res <- liftIO $ getEntry cp name
@@ -216,7 +226,7 @@ getClass name = do
     Nothing -> fail $ "No such class in ClassPath: " ++ name
 
 -- | Get class field signature from current ClassPath
-getClassField :: String -> B.ByteString -> Generate (NameType Field)
+getClassField :: String -> B.ByteString -> GenerateIO (NameType Field)
 getClassField clsName fldName = do
   cls <- getClass clsName
   case lookupField fldName cls of
@@ -224,7 +234,7 @@ getClassField clsName fldName = do
     Nothing  -> fail $ "No such field in class " ++ clsName ++ ": " ++ toString fldName
 
 -- | Get class method signature from current ClassPath
-getClassMethod :: String -> B.ByteString -> Generate (NameType Method)
+getClassMethod :: String -> B.ByteString -> GenerateIO (NameType Method)
 getClassMethod clsName mName = do
   cls <- getClass clsName
   case lookupMethod mName cls of
@@ -246,15 +256,15 @@ genCode st = Code {
     len = fromIntegral $ B.length $ encodeInstructions (generated st)
 
 -- | Start class generation.
-initClass :: B.ByteString -> Generate Word16
+initClass :: (Generator g) => B.ByteString -> g Word16
 initClass name = do
   addToPool (CClass "java/lang/Object")
   addToPool (CClass name)
   addToPool (CString "Code")
 
 -- | Generate a class
-generate :: [Tree CPEntry] -> B.ByteString -> Generate () -> IO (Class Direct)
-generate cp name gen = do
+generateIO :: [Tree CPEntry] -> B.ByteString -> GenerateIO () -> IO (Class Direct)
+generateIO cp name gen = do
   let generator = do
         initClass name
         gen
@@ -262,6 +272,24 @@ generate cp name gen = do
   let code = genCode res
       d = defaultClass :: Class Direct
   return $ d {
+        constsPoolSize = fromIntegral $ M.size (currentPool res),
+        constsPool = currentPool res,
+        accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],
+        thisClass = name,
+        superClass = "java/lang/Object",
+        classMethodsCount = fromIntegral $ length (doneMethods res),
+        classMethods = doneMethods res }
+
+-- | Generate a class
+generate :: [Tree CPEntry] -> B.ByteString -> Generate () -> Class Direct
+generate cp name gen =
+  let generator = do
+        initClass name
+        gen
+      res = execState generator (emptyGState {classPath = cp})
+      code = genCode res
+      d = defaultClass :: Class Direct
+  in  d {
         constsPoolSize = fromIntegral $ M.size (currentPool res),
         constsPool = currentPool res,
         accessFlags = S.fromList [ACC_PUBLIC, ACC_STATIC],

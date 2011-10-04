@@ -8,13 +8,19 @@ module JVM.Common
   byteString
   ) where
 
+import Codec.Binary.UTF8.String (encodeString, decodeString)
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as M
 import Data.Default
+import Data.Char
+import Data.String
 
 import JVM.ClassFile
+
+instance IsString B.ByteString where
+  fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s
 
 instance Default B.ByteString where
   def = B.empty

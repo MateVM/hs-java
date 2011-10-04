@@ -45,6 +45,7 @@ test = do
       invokeStatic Java.Lang.integer Java.Lang.valueOfInteger
       aastore
       invokeVirtual Java.IO.printStream Java.IO.printf
+      -- Call Hello.hello()
       invokeStatic "Hello" helloJava
       pop
       i0 RETURN

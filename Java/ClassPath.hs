@@ -24,9 +24,11 @@ glob dir patterns = do
   (matches, _) <- globDir (map compile patterns) dir
   return $ concat matches
 
+-- | Append one file to ClassPath forest
 appendPath :: FilePath -> [Tree CPEntry] -> [Tree CPEntry]
 appendPath path forest = merge $ forest ++ (mapF NotLoaded $ buildTree [path])
 
+-- | Add one directory to current ClassPath
 addDirectory :: FilePath -> ClassPath ()
 addDirectory dir = do
   files <- liftIO $ glob dir ["*.class"]
@@ -34,12 +36,15 @@ addDirectory dir = do
   let cp' = foldr appendPath cp files
   St.put cp'
 
+-- | Run ClassPath monad
 runClassPath :: ClassPath a -> IO a
 runClassPath m = St.evalStateT m []
 
+-- | Run ClassPath monad and return resulting ClassPath
 execClassPath :: ClassPath () -> IO [Tree CPEntry]
 execClassPath m = St.execStateT m []
 
+-- | Load one class in current ClassPath
 loadClass :: String -> ClassPath ()
 loadClass path = do
     cp <- St.get
@@ -65,6 +70,7 @@ loadClass path = do
       | otherwise = return t
     load ps (File _) = fail $ "Found file when expecting directory! " ++ show ps
 
+-- | Get one ClassPath entry
 getEntry :: [Tree CPEntry] -> String -> IO (Maybe CPEntry)
 getEntry cp path = get cp (split "/" path)
   where

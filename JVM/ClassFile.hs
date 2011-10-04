@@ -23,6 +23,7 @@ module JVM.ClassFile
    -- * Misc
    HasSignature (..), HasAttributes (..),
    NameType (..),
+   fieldNameType, methodNameType,
    toString,
    className,
    apsize, arsize, arlist
@@ -165,9 +166,9 @@ instance HasSignature a => Binary (NameType a) where
 -- | Constant pool item
 data Constant stage =
     CClass (Link stage B.ByteString)
-  | CField {refClass :: Link stage B.ByteString, fieldNameType :: Link stage (NameType Field)}
-  | CMethod {refClass :: Link stage B.ByteString, nameType :: Link stage (NameType Method)}
-  | CIfaceMethod {refClass :: Link stage B.ByteString, nameType :: Link stage (NameType Method)}
+  | CField (Link stage B.ByteString) (Link stage (NameType Field))
+  | CMethod (Link stage B.ByteString) (Link stage (NameType Method))
+  | CIfaceMethod (Link stage B.ByteString) (Link stage (NameType Method))
   | CString (Link stage B.ByteString)
   | CInteger Word32
   | CFloat Float
@@ -510,6 +511,9 @@ deriving instance Eq (Field Direct)
 deriving instance Show (Field File)
 deriving instance Show (Field Direct)
 
+fieldNameType :: Field Direct -> NameType Field
+fieldNameType f = NameType (fieldName f) (fieldSignature f)
+
 instance Binary (Field File) where
   put (Field {..}) = do
     put fieldAccessFlags 
@@ -538,6 +542,9 @@ deriving instance Eq (Method File)
 deriving instance Eq (Method Direct)
 deriving instance Show (Method File)
 deriving instance Show (Method Direct)
+
+methodNameType :: Method Direct -> NameType Method
+methodNameType m = NameType (methodName m) (methodSignature m)
 
 instance Binary (Method File) where
   put (Method {..}) = do

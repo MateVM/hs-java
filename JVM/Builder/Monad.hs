@@ -9,6 +9,8 @@ module JVM.Builder.Monad
    i0, i1, i8,
    newMethod,
    setStackSize, setMaxLocals,
+   withClassPath,
+   getClassField, getClassMethod,
    generate
   ) where
 
@@ -199,6 +201,31 @@ newMethod flags name args ret gen = do
   gen
   endMethod
   return (NameType name sig)
+
+getClass :: String -> Generate (Class Direct)
+getClass name = do
+  cp <- St.gets classPath
+  res <- liftIO $ getEntry cp name
+  case res of
+    Just (NotLoaded p) -> fail $ "Class file was not loaded: " ++ p
+    Just (Loaded _ c) -> return c
+    Just (NotLoadedJAR p c) -> fail $ "Class was not loaded from JAR " ++ p ++ ": " ++ c
+    Just (LoadedJAR _ c) -> return c
+    Nothing -> fail $ "No such class in ClassPath: " ++ name
+
+getClassField :: String -> B.ByteString -> Generate (NameType Field)
+getClassField clsName fldName = do
+  cls <- getClass clsName
+  case lookupField fldName cls of
+    Just fld -> return (fieldNameType fld)
+    Nothing  -> fail $ "No such field in class " ++ clsName ++ ": " ++ toString fldName
+
+getClassMethod :: String -> B.ByteString -> Generate (NameType Method)
+getClassMethod clsName mName = do
+  cls <- getClass clsName
+  case lookupMethod mName cls of
+    Just m -> return (methodNameType m)
+    Nothing  -> fail $ "No such method in class " ++ clsName ++ ": " ++ toString mName
 
 -- | Convert Generator state to method Code.
 genCode :: GState -> Code

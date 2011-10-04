@@ -24,6 +24,7 @@ module JVM.ClassFile
    HasSignature (..), HasAttributes (..),
    NameType (..),
    fieldNameType, methodNameType,
+   lookupField, lookupMethod,
    toString,
    className,
    apsize, arsize, arlist
@@ -511,6 +512,14 @@ deriving instance Eq (Field Direct)
 deriving instance Show (Field File)
 deriving instance Show (Field Direct)
 
+lookupField :: B.ByteString -> Class Direct -> Maybe (Field Direct)
+lookupField name cls = look (classFields cls)
+  where
+    look [] = Nothing
+    look (f:fs)
+      | fieldName f == name = Just f
+      | otherwise           = look fs
+
 fieldNameType :: Field Direct -> NameType Field
 fieldNameType f = NameType (fieldName f) (fieldSignature f)
 
@@ -545,6 +554,14 @@ deriving instance Show (Method Direct)
 
 methodNameType :: Method Direct -> NameType Method
 methodNameType m = NameType (methodName m) (methodSignature m)
+
+lookupMethod :: B.ByteString -> Class Direct -> Maybe (Method Direct)
+lookupMethod name cls = look (classMethods cls)
+  where
+    look [] = Nothing
+    look (f:fs)
+      | methodName f == name = Just f
+      | otherwise           = look fs
 
 instance Binary (Method File) where
   put (Method {..}) = do

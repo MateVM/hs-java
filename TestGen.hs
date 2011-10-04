@@ -6,12 +6,18 @@ import JVM.ClassFile
 import JVM.Converter
 import JVM.Assembler
 import JVM.Builder
+import Java.ClassPath
 
 import qualified Java.Lang
 import qualified Java.IO
 
 test :: Generate ()
 test = do
+  withClassPath $ do
+      addDirectory "."
+
+  helloJava <- getClassMethod "./Hello" "hello"
+
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do
       setStackSize 1
 
@@ -35,6 +41,7 @@ test = do
       invokeStatic Java.Lang.integer Java.Lang.valueOfInteger
       aastore
       invokeVirtual Java.IO.printStream Java.IO.printf
+      invokeStatic "Hello" helloJava
       pop
       i0 RETURN
 

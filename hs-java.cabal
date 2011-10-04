@@ -28,11 +28,16 @@ library
                    JVM.Exceptions
                    Java.Lang
                    Java.IO
+                   Java.ClassPath
+                   Java.ClassPath.Types
+                   Java.ClassPath.Common
+                   Java.JAR.Archive
 
   Build-Depends:  base >= 3 && <= 5, containers, binary,
                   mtl, directory, filepath, utf8-string, array,
                   bytestring, data-binary-ieee754, binary-state,
-                  control-monad-exception, data-default
+                  control-monad-exception, data-default, MissingH,
+                  LibZip, Glob
 
   ghc-options: -fwarn-unused-imports
 

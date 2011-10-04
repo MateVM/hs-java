@@ -1,6 +1,9 @@
 GHC=ghc --make -fwarn-unused-imports
 
-all: dump-class rebuild-class TestGen
+all: Hello.class dump-class rebuild-class TestGen
+
+Hello.class: Hello.java
+	javac $<
 
 dump-class: dump-class.hs */*.hs
 	$(GHC) $<

@@ -34,6 +34,7 @@ import Java.ClassPath
 data GState = GState {
   generated :: [Instruction],             -- ^ Already generated code (in current method)
   currentPool :: Pool Direct,             -- ^ Already generated constants pool
+  nextPoolIndex :: Word16,
   doneMethods :: [Method Direct],         -- ^ Already generated class methods
   currentMethod :: Maybe (Method Direct), -- ^ Current method
   stackSize :: Word16,                    -- ^ Maximum stack size for current method
@@ -47,6 +48,7 @@ emptyGState ::  GState
 emptyGState = GState {
   generated = [],
   currentPool = M.empty,
+  nextPoolIndex = 1,
   doneMethods = [],
   currentMethod = Nothing,
   stackSize = 496,
@@ -98,13 +100,6 @@ withClassPath cp = do
   st <- St.get
   St.put $ st {classPath = res}
 
--- | Append a constant to pool
-appendPool :: Constant Direct -> Pool Direct -> (Pool Direct, Word16)
-appendPool c pool =
-  let ix = if M.null pool then 1 else maximum (M.keys pool) + 1
-      pool' = M.insert ix c pool
-  in  (pool', ix)
-
 -- | Add a constant to pool
 addItem :: (Generator e g) => Constant Direct -> g e Word16
 addItem c = do
@@ -112,9 +107,14 @@ addItem c = do
   case lookupPool c pool of
     Just i -> return i
     Nothing -> do
-      let (pool', i) = appendPool c pool
+      i <- St.gets nextPoolIndex
+      let pool' = M.insert i c pool
+          i' = if long c
+                 then i+2
+                 else i+1
       st <- St.get
-      St.put $ st {currentPool = pool'}
+      St.put $ st {currentPool = pool',
+                   nextPoolIndex = i'}
       return i
 
 -- | Lookup in a pool

@@ -25,6 +25,7 @@ module JVM.ClassFile
    NameType (..),
    fieldNameType, methodNameType,
    lookupField, lookupMethod,
+   long,
    toString,
    className,
    apsize, arsize, arlist
@@ -459,6 +460,7 @@ whileJust m = do
               return (x: next)
     Nothing -> return []
 
+long :: Constant stage -> Bool
 long (CLong _)   = True
 long (CDouble _) = True
 long _           = False

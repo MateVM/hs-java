@@ -19,13 +19,12 @@ import Prelude hiding (catch)
 import Control.Monad.State as St
 import Control.Monad.Exception
 import Data.Word
-import Data.List
 import Data.Binary
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Data.ByteString.Lazy as B
 
-import JVM.Common ()  -- import instances only
+import JVM.Common
 import JVM.ClassFile
 import JVM.Assembler
 import JVM.Exceptions
@@ -102,26 +101,26 @@ withClassPath cp = do
 -- | Append a constant to pool
 appendPool :: Constant Direct -> Pool Direct -> (Pool Direct, Word16)
 appendPool c pool =
-  let size = fromIntegral (M.size pool)
-      pool' = M.insert size c pool
-  in  (pool', size)
+  let ix = if M.null pool then 1 else maximum (M.keys pool) + 1
+      pool' = M.insert ix c pool
+  in  (pool', ix)
 
 -- | Add a constant to pool
 addItem :: (Generator e g) => Constant Direct -> g e Word16
 addItem c = do
   pool <- St.gets currentPool
   case lookupPool c pool of
-    Just i -> return (i+1)
+    Just i -> return i
     Nothing -> do
       let (pool', i) = appendPool c pool
       st <- St.get
       St.put $ st {currentPool = pool'}
-      return (i+1)
+      return i
 
 -- | Lookup in a pool
 lookupPool :: Constant Direct -> Pool Direct -> Maybe Word16
 lookupPool c pool =
-  fromIntegral `fmap` findIndex (== c) (M.elems pool)
+  fromIntegral `fmap` mapFindIndex (== c) pool
 
 addNT :: (Generator e g, HasSignature a) => NameType a -> g e Word16
 addNT (NameType name sig) = do

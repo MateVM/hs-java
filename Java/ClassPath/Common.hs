@@ -57,6 +57,7 @@ merge1 [] x = [x]
 merge1 (x@(File e): es) y@(File e') | e == e'   = x: es
                                     | otherwise = x: merge1 es y
 merge1 (d@(Directory _ _):es) f@(File _) = d: merge1 es f
+merge1 (f@(File _):es) d@(Directory _ _) = f: merge1 es d
 merge1 (x@(Directory dir f):es) y@(Directory dir' f')
   | dir == dir' = Directory dir (merge $ f ++ f'): es 
   | otherwise   = x: merge1 es y

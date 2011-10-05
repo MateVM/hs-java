@@ -32,7 +32,9 @@ module JVM.ClassFile
   where
 
 import Control.Monad
+import Control.Monad.Trans (lift)
 import Control.Applicative
+import qualified Control.Monad.State as St
 import Data.Binary
 import Data.Binary.IEEE754
 import Data.Binary.Get
@@ -173,7 +175,7 @@ data Constant stage =
   | CString (Link stage B.ByteString)
   | CInteger Word32
   | CFloat Float
-  | CLong Integer
+  | CLong Word64
   | CDouble Double
   | CNameType (Link stage B.ByteString) (Link stage B.ByteString)
   | CUTF8 {getString :: B.ByteString}
@@ -256,8 +258,7 @@ instance Binary (Class File) where
     put magic
     put minorVersion
     put majorVersion
-    put constsPoolSize
-    forM_ (M.elems constsPool) put
+    putPool constsPool
     put accessFlags
     put thisClass
     put superClass
@@ -272,23 +273,26 @@ instance Binary (Class File) where
 
   get = do
     magic <- get
+    when (magic /= 0xCAFEBABE) $
+      fail $ "Invalid .class file MAGIC value: " ++ show magic
     minor <- get
     major <- get
-    poolsize <- get
-    pool <- replicateM (fromIntegral poolsize - 1) get
-    af <- get
+    when (major > 50) $
+      fail $ "Too new .class file format: " ++ show major
+    poolsize <- getWord16be
+    pool <- getPool (poolsize - 1)
+    af <-  get
     this <- get
     super <- get
     interfacesCount <- get
     ifaces <- replicateM (fromIntegral interfacesCount) get
-    classFieldsCount <- get
+    classFieldsCount <- getWord16be
     classFields <- replicateM (fromIntegral classFieldsCount) get
     classMethodsCount <- get
     classMethods <- replicateM (fromIntegral classMethodsCount) get
     asCount <- get
     as <- replicateM (fromIntegral $ asCount) get
-    let pool' = M.fromList $ zip [1..] pool
-    return $ Class magic minor major poolsize pool' af this super
+    return $ Class magic minor major poolsize pool af this super
                interfacesCount ifaces classFieldsCount classFields
                classMethodsCount classMethods asCount (AP as)
 
@@ -455,49 +459,79 @@ whileJust m = do
               return (x: next)
     Nothing -> return []
 
-instance Binary (Constant File) where
-  put (CClass i) = putWord8 7 >> put i
-  put (CField i j) = putWord8 9 >> put i >> put j
-  put (CMethod i j) = putWord8 10 >> put i >> put j
-  put (CIfaceMethod i j) = putWord8 11 >> put i >> put j
-  put (CString i) = putWord8 8 >> put i
-  put (CInteger x) = putWord8 3 >> put x
-  put (CFloat x)   = putWord8 4 >> putFloat32be x
-  put (CLong x)    = putWord8 5 >> put x
-  put (CDouble x)  = putWord8 6 >> putFloat64be x
-  put (CNameType i j) = putWord8 12 >> put i >> put j
-  put (CUTF8 bs) = do
-                   putWord8 1
-                   put (fromIntegral (B.length bs) :: Word16)
-                   putLazyByteString bs
-  put (CUnicode bs) = do
-                   putWord8 2
-                   put (fromIntegral (B.length bs) :: Word16)
-                   putLazyByteString bs
+long (CLong _)   = True
+long (CDouble _) = True
+long _           = False
 
-  get = do
-    !offset <- bytesRead
-    tag <- getWord8
-    case tag of
-      1 -> do
-        l <- get
-        bs <- getLazyByteString (fromIntegral (l :: Word16))
-        return $ CUTF8 bs
-      2 -> do
-        l <- get
-        bs <- getLazyByteString (fromIntegral (l :: Word16))
-        return $ CUnicode bs
-      3  -> CInteger   <$> get
-      4  -> CFloat     <$> getFloat32be
-      5  -> CLong      <$> get
-      6  -> CDouble    <$> getFloat64be
-      7  -> CClass     <$> get
-      8  -> CString    <$> get
-      9  -> CField     <$> get <*> get
-      10 -> CMethod    <$> get <*> get
-      11 -> CIfaceMethod <$> get <*> get
-      12 -> CNameType    <$> get <*> get
-      _  -> fail $ "Unknown constants pool entry tag: " ++ show tag
+putPool :: Pool File -> Put
+putPool pool = do
+    let list = M.elems pool
+        d = length $ filter long list
+    putWord16be $ fromIntegral (M.size pool + d + 1)
+    forM_ list putC
+  where
+    putC (CClass i) = putWord8 7 >> put i
+    putC (CField i j) = putWord8 9 >> put i >> put j
+    putC (CMethod i j) = putWord8 10 >> put i >> put j
+    putC (CIfaceMethod i j) = putWord8 11 >> put i >> put j
+    putC (CString i) = putWord8 8 >> put i
+    putC (CInteger x) = putWord8 3 >> put x
+    putC (CFloat x)   = putWord8 4 >> putFloat32be x
+    putC (CLong x)    = putWord8 5 >> put x
+    putC (CDouble x)  = putWord8 6 >> putFloat64be x
+    putC (CNameType i j) = putWord8 12 >> put i >> put j
+    putC (CUTF8 bs) = do
+                     putWord8 1
+                     put (fromIntegral (B.length bs) :: Word16)
+                     putLazyByteString bs
+    putC (CUnicode bs) = do
+                     putWord8 2
+                     put (fromIntegral (B.length bs) :: Word16)
+                     putLazyByteString bs
+
+getPool :: Word16 -> Get (Pool File)
+getPool n = do
+    items <- St.evalStateT go 1
+    return $ M.fromList items
+  where
+    go :: St.StateT Word16 Get [(Word16, Constant File)]
+    go = do
+      i <- St.get
+      if i > n
+        then return []
+        else do
+          c <- lift getC
+          let i' = if long c
+                      then i+2
+                      else i+1
+          St.put i'
+          next <- go
+          return $ (i,c): next
+
+    getC = do
+      !offset <- bytesRead
+      tag <- getWord8
+      case tag of
+        1 -> do
+          l <- get
+          bs <- getLazyByteString (fromIntegral (l :: Word16))
+          return $ CUTF8 bs
+        2 -> do
+          l <- get
+          bs <- getLazyByteString (fromIntegral (l :: Word16))
+          return $ CUnicode bs
+        3  -> CInteger   <$> get
+        4  -> CFloat     <$> getFloat32be
+        5  -> CLong      <$> get
+        6  -> CDouble    <$> getFloat64be
+        7  -> CClass     <$> get
+        8  -> CString    <$> get
+        9  -> CField     <$> get <*> get
+        10 -> CMethod    <$> get <*> get
+        11 -> CIfaceMethod <$> get <*> get
+        12 -> CNameType    <$> get <*> get
+        _  -> fail $ "Unknown constants pool entry tag: " ++ show tag
+--         _ -> return $ CInteger 0
 
 -- | Class field format
 data Field stage = Field {
@@ -533,9 +567,9 @@ instance Binary (Field File) where
 
   get = do
     af <- get
-    ni <- get
+    ni <- getWord16be
     si <- get
-    n <- get
+    n <- getWord16be
     as <- replicateM (fromIntegral n) get
     return $ Field af ni si n (AP as)
 
@@ -601,7 +635,7 @@ instance Binary Attribute where
 
   get = do
     offset <- bytesRead
-    name <- get
+    name <- getWord16be
     len <- getWord32be
     value <- getLazyByteString (fromIntegral len)
     return $ Attribute name len value

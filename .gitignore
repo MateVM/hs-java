@@ -5,4 +5,9 @@
 *.swp
 .*.swp
 dump-class
+rebuild-class
+TestGen
 dist/
+MANIFEST.MF
+META-INF
+*.jar

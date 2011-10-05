@@ -17,9 +17,9 @@ main = do
       cls <- parseClassFile clspath
       clsfile <- decodeFile clspath :: IO (Class File)
       dumpClass cls
-      putStrLn $ "Source pool:\n" ++ showListIx (M.elems $ constsPool clsfile)
+      putStrLn $ "Source pool:\n" ++ showListIx (M.assocs $ constsPool clsfile)
       let result = classDirect2File cls
-      putStrLn $ "Result pool:\n" ++ showListIx (M.elems $ constsPool result)
+      putStrLn $ "Result pool:\n" ++ showListIx (M.assocs $ constsPool result)
       B.writeFile outpath (encodeClass cls)
 
     _ -> error "Synopsis: rebuild-class File.class Output.class"

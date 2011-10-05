@@ -18,6 +18,7 @@ import Data.Bits
 import Data.Binary
 import Data.Default () -- import instances only
 import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Char8 ()
 import qualified Data.Set as S
 import qualified Data.Map as M
 
@@ -103,9 +104,9 @@ poolDirect2File pool = result
 
 -- | Find index of given string in the list of constants
 poolIndex :: (Throws NoItemInPool e) => Pool File -> B.ByteString -> EM e Word16
-poolIndex list name = case findIndex test (M.elems list) of
+poolIndex list name = case mapFindIndex test list of
                         Nothing -> throw (NoItemInPool name)
-                        Just i ->  return $ fromIntegral $ i+1
+                        Just i ->  return $ fromIntegral i
   where
     test (CUTF8 s)    | s == name = True
     test (CUnicode s) | s == name = True
@@ -113,11 +114,11 @@ poolIndex list name = case findIndex test (M.elems list) of
 
 -- | Find index of given string in the list of constants
 poolClassIndex :: (Throws NoItemInPool e) => Pool File -> B.ByteString -> EM e Word16
-poolClassIndex list name = case findIndex checkString (M.elems list) of
+poolClassIndex list name = case mapFindIndex checkString list of
                         Nothing -> throw (NoItemInPool name)
-                        Just i ->  case findIndex (checkClass $ fromIntegral $ i+1) (M.elems list) of
-                                     Nothing -> throw (NoItemInPool $ i+1)
-                                     Just j  -> return $ fromIntegral $ j+1
+                        Just i ->  case mapFindIndex (checkClass $ fromIntegral i) list of
+                                     Nothing -> throw (NoItemInPool i)
+                                     Just j  -> return $ fromIntegral j
   where
     checkString (CUTF8 s)    | s == name = True
     checkString (CUnicode s) | s == name = True
@@ -129,9 +130,9 @@ poolClassIndex list name = case findIndex checkString (M.elems list) of
 poolNTIndex list x@(NameType n t) = do
     ni <- poolIndex list n
     ti <- poolIndex list (byteString t)
-    case findIndex (check ni ti) (M.elems list) of
+    case mapFindIndex (check ni ti) list of
       Nothing -> throw (NoItemInPool x)
-      Just i  -> return $ fromIntegral (i+1)
+      Just i  -> return $ fromIntegral i
   where
     check ni ti (CNameType n' t')
       | (ni == n') && (ti == t') = True
@@ -175,10 +176,13 @@ poolFile2Direct ps = pool
 
     convertNameType :: (HasSignature a) => Word16 -> NameType a
     convertNameType i =
-      let (CNameType n s) = pool ! i
-      in  NameType n (decode s)
+      case pool ! i of
+        CNameType n s -> NameType n (decode s)
+        x -> error $ "Unexpected: " ++ show i
 
-    convert (CClass i) = CClass $ getString $ pool ! i
+    convert (CClass i) = case pool ! i of
+                          CUTF8 name -> CClass name
+                          x -> error $ "Unexpected class name: " ++ show x ++ " at " ++ show i
     convert (CField i j) = CField (className $ pool ! i) (convertNameType j)
     convert (CMethod i j) = CMethod (className $ pool ! i) (convertNameType j)
     convert (CIfaceMethod i j) = CIfaceMethod (className $ pool ! i) (convertNameType j)

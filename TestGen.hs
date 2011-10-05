@@ -20,7 +20,7 @@ test = do
       addDirectory "."
 
   -- Load method signature: Hello.hello() from Hello.class
-  helloJava <- getClassMethod "Hello" "hello"
+  helloJava <- getClassMethod "./Hello" "hello"
 
   -- Initializer method. Just calls java.lang.Object.<init>
   newMethod [ACC_PUBLIC] "<init>" [] ReturnsVoid $ do

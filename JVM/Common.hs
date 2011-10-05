@@ -5,22 +5,18 @@ module JVM.Common
   poolSize,
   (!),
   showListIx,
+  mapFindIndex,
   byteString
   ) where
 
-import Codec.Binary.UTF8.String (encodeString)
 import Data.Binary
 import Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as M
 import Data.Default
-import Data.Char
-import Data.String
+import Data.List
 
 import JVM.ClassFile
-
-instance IsString B.ByteString where
-  fromString s = B.pack $ map (fromIntegral . ord) $ encodeString s
 
 instance Default B.ByteString where
   def = B.empty
@@ -37,10 +33,16 @@ poolSize = M.size
 (!) :: (Ord k) => M.Map k a -> k -> a
 (!) = (M.!)
 
-showListIx :: (Show a) => [a] -> String
-showListIx list = unlines $ zipWith s [1..] list
-  where s i x = show i ++ ":\t" ++ show x
+showListIx :: (Show i, Show a) => [(i,a)] -> String
+showListIx list = unlines $ map s list
+  where s (i, x) = show i ++ ":\t" ++ show x
 
 byteString ::  (Binary t) => t -> B.ByteString
 byteString x = runPut (put x)
+
+mapFindIndex :: (Num k) => (v -> Bool) -> M.Map k v -> Maybe k
+mapFindIndex check m =
+  case find (check . snd) (M.assocs m) of
+    Nothing -> Nothing
+    Just (k,_) -> Just k
 

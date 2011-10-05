@@ -5,6 +5,8 @@ module JVM.Builder.Instructions where
 
 import Data.Word
 import qualified Data.ByteString.Lazy as B
+import Codec.Binary.UTF8.String (encodeString)
+import Data.String
 
 import JVM.ClassFile
 import JVM.Assembler
@@ -293,9 +295,9 @@ getStaticField :: Generator e g => B.ByteString -> NameType Field -> g e ()
 getStaticField cls sig =
   i1 GETSTATIC (CField cls sig)
 
-loadString :: Generator e g => B.ByteString -> g e ()
+loadString :: Generator e g => String -> g e ()
 loadString str =
-  i8 LDC1 (CString str)
+  i8 LDC1 (CString $ fromString $ encodeString $ str)
 
 allocArray :: Generator e g => B.ByteString -> g e ()
 allocArray cls =

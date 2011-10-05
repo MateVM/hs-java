@@ -31,7 +31,7 @@ readOne jarfile str = do
     files <- Zip.fileNames []
     return $ mapF (NotLoadedJAR jarfile) (buildTree $ filter good files)
   where
-    good name = str `isPrefixOf` name
+    good name = (str `isPrefixOf` name) && (".class" `isSuffixOf` name)
 
 -- | Read entries from JAR file, using MANIFEST.MF if it exists.
 readJAR :: FilePath -> IO [Tree CPEntry]

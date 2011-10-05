@@ -5,6 +5,7 @@ module JVM.ClassFile
   (-- * About
    -- $about
    --
+   --
    -- * Internal class file structures
    Attribute (..),
    FieldType (..),

@@ -1,6 +1,12 @@
 {-# LANGUAGE FlexibleContexts, TypeFamilies, OverloadedStrings, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
--- | This module defines Generate monad, which helps generating JVM code and
+-- | This module defines Generate[IO] monad, which helps generating JVM code and
 -- creating Java class constants pool.
+--
+-- Code generation could be done using one of two monads: Generate and GenerateIO.
+-- Generate monad is pure (simply State monad), while GenerateIO is IO-related.
+-- In GenerateIO additional actions are available, such as setting up ClassPath
+-- and loading classes (from .class files or JAR archives).
+--
 module JVM.Builder.Monad
   (GState (..),
    emptyGState,
@@ -18,6 +24,7 @@ module JVM.Builder.Monad
 import Prelude hiding (catch)
 import Control.Monad.State as St
 import Control.Monad.Exception
+import Control.Monad.Exception.Base
 import Data.Word
 import Data.Binary
 import qualified Data.Map as M
@@ -34,7 +41,7 @@ import Java.ClassPath
 data GState = GState {
   generated :: [Instruction],             -- ^ Already generated code (in current method)
   currentPool :: Pool Direct,             -- ^ Already generated constants pool
-  nextPoolIndex :: Word16,
+  nextPoolIndex :: Word16,                -- ^ Next index to be used in constants pool
   doneMethods :: [Method Direct],         -- ^ Already generated class methods
   currentMethod :: Maybe (Method Direct), -- ^ Current method
   stackSize :: Word16,                    -- ^ Maximum stack size for current method
@@ -85,10 +92,16 @@ instance Generator e GenerateIO where
 instance (MonadState GState (EMT e (State GState))) => Generator e Generate where
   throwG e = Generate (throw e)
 
+execGenerateIO :: [Tree CPEntry]
+               -> GenerateIO (Caught SomeException NoExceptions) a
+               -> IO GState
 execGenerateIO cp (GenerateIO emt) = do
     let caught = emt `catch` (\(e :: SomeException) -> fail $ show e)
     execStateT (runEMT caught) (emptyGState {classPath = cp})
 
+execGenerate :: [Tree CPEntry]
+             -> Generate (Caught SomeException NoExceptions) a
+             -> GState
 execGenerate cp (Generate emt) = do
     let caught = emt `catch` (\(e :: SomeException) -> fail $ show e)
     execState (runEMT caught) (emptyGState {classPath = cp})
@@ -295,6 +308,10 @@ initClass name = do
   addToPool (CString "Code")
 
 -- | Generate a class
+generateIO :: [Tree CPEntry]
+           -> B.ByteString
+           -> GenerateIO (Caught SomeException NoExceptions) ()
+           -> IO (Class Direct)
 generateIO cp name gen = do
   let generator = do
         initClass name
@@ -312,6 +329,10 @@ generateIO cp name gen = do
         classMethods = doneMethods res }
 
 -- | Generate a class
+generate :: [Tree CPEntry]
+         -> B.ByteString
+         -> Generate (Caught SomeException NoExceptions) ()
+         -> Class Direct
 generate cp name gen =
   let generator = do
         initClass name

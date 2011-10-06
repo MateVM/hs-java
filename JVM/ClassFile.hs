@@ -207,22 +207,22 @@ type Pool stage = M.Map Word16 (Constant stage)
 
 -- | Generic .class file format
 data Class stage = Class {
-  magic :: Word32,                   -- ^ Magic value: 0xCAFEBABE
+  magic :: Word32,                         -- ^ Magic value: 0xCAFEBABE
   minorVersion :: Word16,
   majorVersion :: Word16,
-  constsPoolSize :: Word16,          -- ^ Number of items in constants pool
-  constsPool :: Pool stage,            -- ^ Constants pool itself
-  accessFlags :: AccessFlags stage,             -- ^ See @JVM.Types.AccessFlag@
-  thisClass :: Link stage B.ByteString,               -- ^ Constants pool item index for this class
-  superClass :: Link stage B.ByteString,              -- ^ --/-- for super class, zero for java.lang.Object
-  interfacesCount :: Word16,         -- ^ Number of implemented interfaces
-  interfaces :: [Link stage B.ByteString],            -- ^ Constants pool item indexes for implemented interfaces
-  classFieldsCount :: Word16,        -- ^ Number of class fileds
-  classFields :: [Field stage],        -- ^ Class fields
-  classMethodsCount :: Word16,       -- ^ Number of class methods
-  classMethods :: [Method stage],      -- ^ Class methods
-  classAttributesCount :: Word16,    -- ^ Number of class attributes
-  classAttributes :: Attributes stage -- ^ Class attributes
+  constsPoolSize :: Word16,                -- ^ Number of items in constants pool
+  constsPool :: Pool stage,                -- ^ Constants pool itself
+  accessFlags :: AccessFlags stage,        -- ^ See @JVM.Types.AccessFlag@
+  thisClass :: Link stage B.ByteString,    -- ^ Constants pool item index for this class
+  superClass :: Link stage B.ByteString,   -- ^ --/-- for super class, zero for java.lang.Object
+  interfacesCount :: Word16,               -- ^ Number of implemented interfaces
+  interfaces :: [Link stage B.ByteString], -- ^ Constants pool item indexes for implemented interfaces
+  classFieldsCount :: Word16,              -- ^ Number of class fileds
+  classFields :: [Field stage],            -- ^ Class fields
+  classMethodsCount :: Word16,             -- ^ Number of class methods
+  classMethods :: [Method stage],          -- ^ Class methods
+  classAttributesCount :: Word16,          -- ^ Number of class attributes
+  classAttributes :: Attributes stage      -- ^ Class attributes
   }
 
 deriving instance Eq (Class File)

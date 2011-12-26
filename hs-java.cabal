@@ -12,6 +12,8 @@ Description:    This package declares data types for Java .class files format an
                 to assemble/disassemble Java bytecode. See dump-class.hs, rebuild-class.hs,
                 TestGen.hs for examples of usage.
 
+Bug-reports: http://home.iportnov.ru:3000/projects/hs-java/
+
 Extra-source-files: dump-class.hs
                     rebuild-class.hs
                     TestGen.hs
@@ -49,3 +51,4 @@ library
 Source-repository head
   type:     git
   location: git@gitorious.org:hs-java/hs-java.git
+

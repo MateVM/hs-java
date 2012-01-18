@@ -3,6 +3,7 @@ module Java.ClassPath.Common where
 
 import Data.List
 import Data.String.Utils (split)
+import System.FilePath
 
 import Java.ClassPath.Types
 
@@ -18,6 +19,15 @@ mapFM fn forest = mapM (mapTM fn) forest
 mapTM ::  (Monad m, Functor m) => (t -> m a) -> Tree t -> m (Tree a)
 mapTM fn (Directory dir forest) = Directory dir `fmap` mapFM fn forest
 mapTM fn (File a) = File `fmap` fn a
+
+mapFMF ::  (Monad m, Functor m) => (FilePath -> t -> m a) -> [Tree t] -> m [Tree a]
+mapFMF fn forest = mapM (mapTMF fn) forest
+
+mapTMF ::  (Monad m, Functor m) => (FilePath -> t -> m a) -> Tree t -> m (Tree a)
+mapTMF fn t = go "" t
+  where
+    go path (Directory dir forest) = Directory dir `fmap` mapM (go $ path </> dir) forest
+    go path (File a) = File `fmap` fn path a
 
 -- | map on tree
 mapT ::  (t -> a) -> Tree t -> Tree a

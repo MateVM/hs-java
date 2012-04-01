@@ -242,7 +242,7 @@ data Instruction =
   | IF CMP                 -- ^ 153, 154, 155, 156, 157, 158
   | IF_ICMP CMP Word16     -- ^ 159, 160, 161, 162, 163, 164
   | IF_ACMP CMP Word16     -- ^ 165, 166
-  | GOTO                   -- ^ 167
+  | GOTO Word16            -- ^ 167
   | JSR Word16             -- ^ 168
   | RET                    -- ^ 169
   | TABLESWITCH Word32 Word32 Word32 [Word32]     -- ^ 170
@@ -480,7 +480,7 @@ instance BinaryState Integer Instruction where
   put (IF_ACMP C_NE x) = put1 166 x
   put (IF_ACMP c _)   = fail $ "No such instruction: IF_ACMP " ++ show c
   put (IF_ICMP c x)   = putByte (fromIntegral $ 159 + fromEnum c) >> put x
-  put  GOTO           = putByte 167
+  put (GOTO x)        = put1 167 x
   put (JSR x)         = put1 168 x
   put  RET            = putByte 169
   put (TABLESWITCH def low high offs) = do
@@ -646,7 +646,7 @@ instance BinaryState Integer Instruction where
       152 -> return $ DCMP C_GT
       165 -> IF_ACMP C_EQ <$> get
       166 -> IF_ACMP C_NE <$> get
-      167 -> return GOTO
+      167 -> GOTO <$> get
       168 -> JSR <$> get
       169 -> return RET
       170 -> do

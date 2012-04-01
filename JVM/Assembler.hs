@@ -239,7 +239,7 @@ data Instruction =
   | LCMP                   -- ^ 148
   | FCMP CMP               -- ^ 149, 150
   | DCMP CMP               -- ^ 151, 152
-  | IF CMP                 -- ^ 153, 154, 155, 156, 157, 158
+  | IF CMP Word16          -- ^ 153, 154, 155, 156, 157, 158
   | IF_ICMP CMP Word16     -- ^ 159, 160, 161, 162, 163, 164
   | IF_ACMP CMP Word16     -- ^ 165, 166
   | GOTO Word16            -- ^ 167
@@ -475,7 +475,7 @@ instance BinaryState Integer Instruction where
   put (DCMP C_LT)     = putByte 151
   put (DCMP C_GT)     = putByte 152
   put (DCMP c)        = fail $ "No such instruction: DCMP " ++ show c
-  put (IF c)          = putByte (fromIntegral $ 153 + fromEnum c)
+  put (IF c x)        = putByte (fromIntegral $ 153 + fromEnum c) >> put x
   put (IF_ACMP C_EQ x) = put1 165 x
   put (IF_ACMP C_NE x) = put1 166 x
   put (IF_ACMP c _)   = fail $ "No such instruction: IF_ACMP " ++ show c
@@ -704,7 +704,7 @@ instance BinaryState Integer Instruction where
         | inRange (34, 37) c -> imm 34 FLOAD_ c
         | inRange (38, 41) c -> imm 38 DLOAD_ c
         | inRange (42, 45) c -> imm 42 ALOAD_ c
-        | inRange (153, 158) c -> return $ IF (toEnum $ fromIntegral $ c-153)
+        | inRange (153, 158) c -> IF (toEnum $ fromIntegral $ c-153) <$> get
         | inRange (159, 164) c -> IF_ICMP (toEnum $ fromIntegral $ c-159) <$> get
         | otherwise -> fail $ "Unknown instruction byte code: " ++ show c
 

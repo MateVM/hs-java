@@ -251,6 +251,7 @@ data Instruction =
   | LRETURN                -- ^ 173
   | FRETURN                -- ^ 174
   | DRETURN                -- ^ 175
+  | ARETURN                -- ^ 176
   | RETURN                 -- ^ 177
   | GETSTATIC Word16       -- ^ 178
   | PUTSTATIC Word16       -- ^ 179
@@ -503,6 +504,7 @@ instance BinaryState Integer Instruction where
   put  LRETURN        = putByte 173
   put  FRETURN        = putByte 174
   put  DRETURN        = putByte 175
+  put  ARETURN        = putByte 176
   put  RETURN         = putByte 177
   put (GETSTATIC x)   = put1 178 x
   put (PUTSTATIC x)   = put1 179 x
@@ -670,6 +672,7 @@ instance BinaryState Integer Instruction where
       173 -> return LRETURN
       174 -> return FRETURN
       175 -> return DRETURN
+      176 -> return ARETURN
       177 -> return RETURN
       178 -> GETSTATIC <$> get
       179 -> PUTSTATIC <$> get

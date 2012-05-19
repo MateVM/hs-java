@@ -2,6 +2,7 @@
 module Java.JAR 
   (readManifest,
    readJAR,
+   readMainClass,
    addJAR
   ) where
 
@@ -32,6 +33,15 @@ readOne jarfile str = do
     return $ mapF (NotLoadedJAR jarfile) (buildTree $ filter good files)
   where
     good name = (str `isPrefixOf` name) && (".class" `isSuffixOf` name)
+
+-- | Read MainClass Entry of a MANIFEST.MF file
+readMainClass :: FilePath -> IO (Maybe String)
+readMainClass jarfile = do
+  Zip.withArchive [] jarfile $ do
+    m <- readManifest
+    case m of
+      Nothing -> return Nothing
+      Just mf -> return $ mainClass mf
 
 -- | Read entries from JAR file, using MANIFEST.MF if it exists.
 readJAR :: FilePath -> IO [Tree CPEntry]

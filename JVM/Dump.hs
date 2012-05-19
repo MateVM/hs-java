@@ -3,7 +3,7 @@ module JVM.Dump where
 
 import Control.Monad
 import qualified Data.Map as M
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Char8 as B
 import Text.Printf
 
 import JVM.Common ()

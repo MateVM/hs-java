@@ -1,7 +1,6 @@
 -- | This module defines functions to read Java JAR files.
 module Java.JAR.Archive where
 
-import Control.Monad.Trans
 import qualified Codec.Archive.LibZip as Zip
 import Data.Binary
 import Data.List

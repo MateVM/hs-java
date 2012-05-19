@@ -9,7 +9,7 @@ module Java.ClassPath
 
 import qualified Control.Monad.State as St
 import Control.Monad.Trans (liftIO)
-import System.FilePath.Glob
+import System.FilePath.Glob hiding (glob)
 import Data.String.Utils (split)
 
 import JVM.ClassFile

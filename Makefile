@@ -15,5 +15,6 @@ TestGen: TestGen.hs */*.hs
 	$(GHC) $<
 
 clean:
-	find . -name *.hi -delete
-	find . -name *.o -delete
+	find . -name \*.hi -delete
+	find . -name \*.o -delete
+	rm -f TestGen dump-class rebuild-class

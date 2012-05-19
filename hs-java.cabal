@@ -11,7 +11,7 @@ Build-Type:     Simple
 Description:    This package declares data types for Java .class files format and functions
                 to assemble/disassemble Java bytecode. See dump-class.hs, rebuild-class.hs,
                 TestGen.hs for examples of usage.
-Bug-reports: http://home.iportnov.ru:3000/projects/hs-java/
+Bug-reports: http://redmine.iportnov.ru/projects/hs-java/
 
 Extra-source-files: dump-class.hs
                     rebuild-class.hs

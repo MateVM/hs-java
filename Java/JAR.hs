@@ -46,6 +46,7 @@ readJAR jarfile = do
                       return (Just forest)
   case r of
     Nothing -> readAllJAR jarfile
+    Just [] -> readAllJAR jarfile
     Just f  -> return f
 
 -- | Add given JAR file to ClassPath

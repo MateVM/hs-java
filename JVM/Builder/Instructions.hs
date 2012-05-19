@@ -279,19 +279,19 @@ allocNewArray :: Generator e g => B.ByteString -> g e ()
 allocNewArray cls =
   i1 ANEWARRAY (CClass cls)
 
-invokeVirtual :: Generator e g => B.ByteString -> NameType Method -> g e ()
+invokeVirtual :: Generator e g => B.ByteString -> NameType (Method Direct) -> g e ()
 invokeVirtual cls sig =
   i1 INVOKEVIRTUAL (CMethod cls sig)
 
-invokeStatic :: Generator e g => B.ByteString -> NameType Method -> g e ()
+invokeStatic :: Generator e g => B.ByteString -> NameType (Method Direct) -> g e ()
 invokeStatic cls sig =
   i1 INVOKESTATIC (CMethod cls sig)
 
-invokeSpecial :: Generator e g => B.ByteString -> NameType Method -> g e ()
+invokeSpecial :: Generator e g => B.ByteString -> NameType (Method Direct) -> g e ()
 invokeSpecial cls sig =
   i1 INVOKESPECIAL (CMethod cls sig)
 
-getStaticField :: Generator e g => B.ByteString -> NameType Field -> g e ()
+getStaticField :: Generator e g => B.ByteString -> NameType (Field Direct) -> g e ()
 getStaticField cls sig =
   i1 GETSTATIC (CField cls sig)
 

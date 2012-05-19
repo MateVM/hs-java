@@ -147,11 +147,11 @@ class (Binary (Signature a), Show (Signature a), Eq (Signature a))
     => HasSignature a where
   type Signature a
 
-instance HasSignature Field where
-  type Signature Field = FieldSignature
+instance HasSignature (Field Direct) where
+  type Signature (Field Direct) = FieldSignature
 
-instance HasSignature Method where
-  type Signature Method = MethodSignature
+instance HasSignature (Method Direct) where
+  type Signature (Method Direct) = MethodSignature
 
 -- | Name and signature pair. Used for methods and fields.
 data NameType a = NameType {
@@ -171,9 +171,9 @@ instance HasSignature a => Binary (NameType a) where
 -- | Constant pool item
 data Constant stage =
     CClass (Link stage B.ByteString)
-  | CField (Link stage B.ByteString) (Link stage (NameType Field))
-  | CMethod (Link stage B.ByteString) (Link stage (NameType Method))
-  | CIfaceMethod (Link stage B.ByteString) (Link stage (NameType Method))
+  | CField (Link stage B.ByteString) (Link stage (NameType (Field stage)))
+  | CMethod (Link stage B.ByteString) (Link stage (NameType (Method stage)))
+  | CIfaceMethod (Link stage B.ByteString) (Link stage (NameType (Method stage)))
   | CString (Link stage B.ByteString)
   | CInteger Word32
   | CFloat Float
@@ -557,7 +557,7 @@ lookupField name cls = look (classFields cls)
       | fieldName f == name = Just f
       | otherwise           = look fs
 
-fieldNameType :: Field Direct -> NameType Field
+fieldNameType :: Field Direct -> NameType (Field Direct)
 fieldNameType f = NameType (fieldName f) (fieldSignature f)
 
 instance Binary (Field File) where
@@ -589,7 +589,7 @@ deriving instance Eq (Method Direct)
 deriving instance Show (Method File)
 deriving instance Show (Method Direct)
 
-methodNameType :: Method Direct -> NameType Method
+methodNameType :: Method Direct -> NameType (Method Direct)
 methodNameType m = NameType (methodName m) (methodSignature m)
 
 lookupMethod :: B.ByteString -> Class Direct -> Maybe (Method Direct)

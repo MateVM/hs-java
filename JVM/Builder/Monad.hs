@@ -247,7 +247,7 @@ newMethod :: (Generator e g, Throws UnexpectedEndMethod e)
           -> [ArgumentSignature] -- ^ Signatures of method arguments
           -> ReturnSignature     -- ^ Method return signature
           -> g e ()                -- ^ Generator for method code
-          -> g e (NameType Method)
+          -> g e (NameType (Method Direct))
 newMethod flags name args ret gen = do
   let sig = MethodSignature args ret
   startMethod flags name sig
@@ -270,7 +270,7 @@ getClass name = do
 
 -- | Get class field signature from current ClassPath
 getClassField :: (Throws ENotFound e, Throws ENotLoaded e)
-              => String -> B.ByteString -> GenerateIO e (NameType Field)
+              => String -> B.ByteString -> GenerateIO e (NameType (Field Direct))
 getClassField clsName fldName = do
   cls <- getClass clsName
   case lookupField fldName cls of
@@ -279,7 +279,7 @@ getClassField clsName fldName = do
 
 -- | Get class method signature from current ClassPath
 getClassMethod :: (Throws ENotFound e, Throws ENotLoaded e)
-               => String -> B.ByteString -> GenerateIO e (NameType Method)
+               => String -> B.ByteString -> GenerateIO e (NameType (Method Direct))
 getClassMethod clsName mName = do
   cls <- getClass clsName
   case lookupMethod mName cls of

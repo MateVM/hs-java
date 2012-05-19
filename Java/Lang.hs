@@ -32,10 +32,10 @@ system :: IsString s => s
 system = "java/lang/System"
 
 -- | java.lang.Object.<init>() method
-objectInit :: NameType Method
+objectInit :: NameType (Method Direct)
 objectInit = NameType "<init>" $ MethodSignature [] ReturnsVoid
 
 -- | java.lang.Integer.valueOf() method
-valueOfInteger :: NameType Method
+valueOfInteger :: NameType (Method Direct)
 valueOfInteger = NameType "valueOf" $ MethodSignature [IntType] (Returns Java.Lang.integerClass)
 

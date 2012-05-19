@@ -17,13 +17,13 @@ printStream = "java/io/PrintStream"
 printStreamClass ::  FieldType
 printStreamClass = ObjectType printStream
 
-println :: NameType Method
+println :: NameType (Method Direct)
 println = NameType "println" $ MethodSignature [Java.Lang.stringClass] ReturnsVoid
 
-out :: NameType Field
+out :: NameType (Field Direct)
 out = NameType "out" printStreamClass
 
-printf :: NameType Method
+printf :: NameType (Method Direct)
 printf =
   NameType "printf" $ MethodSignature [Java.Lang.stringClass,
                                        Array Nothing Java.Lang.objectClass] (Returns printStreamClass)

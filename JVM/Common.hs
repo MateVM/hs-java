@@ -21,9 +21,6 @@ import JVM.ClassFile
 instance Default B.ByteString where
   def = B.empty
 
-instance Default Word16 where
-  def = 0
-
 toCharList :: B.ByteString -> [Int]
 toCharList bstr = map fromIntegral $ B.unpack bstr
 

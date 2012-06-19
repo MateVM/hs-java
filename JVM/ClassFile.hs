@@ -310,7 +310,7 @@ data FieldType =
   | BoolType   -- ^ Z
   | ObjectType String -- ^ L @{class name}@
   | Array (Maybe Int) FieldType -- ^ @[{type}@
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show FieldType where
   show SignedByte = "byte"
@@ -396,7 +396,7 @@ getToSemicolon = do
 data ReturnSignature =
     Returns FieldType
   | ReturnsVoid
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show ReturnSignature where
   show (Returns t) = show t
@@ -418,7 +418,7 @@ type ArgumentSignature = FieldType
 -- | Class method argument signature
 data MethodSignature =
     MethodSignature [ArgumentSignature] ReturnSignature
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show MethodSignature where
   show (MethodSignature args ret) = "(" ++ intercalate ", " (map show args) ++ ") returns " ++ show ret

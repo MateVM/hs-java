@@ -27,6 +27,7 @@ import qualified Data.ByteString.Lazy as B
 import Data.BinaryState
 import JVM.ClassFile
 
+
 -- | Immediate constant. Corresponding value will be added to base opcode.
 data IMM =
     I0     -- ^ 0
@@ -245,8 +246,8 @@ data Instruction =
   | GOTO Word16            -- ^ 167
   | JSR Word16             -- ^ 168
   | RET                    -- ^ 169
-  | TABLESWITCH Word32 Word32 Word32 [Word32]     -- ^ 170
-  | LOOKUPSWITCH Word32 Word32 [(Word32, Word32)] -- ^ 171
+  | TABLESWITCH Word8 Word32 Word32 Word32 [Word32]     -- ^ 170
+  | LOOKUPSWITCH Word8 Word32 Word32 [(Word32, Word32)] -- ^ 171
   | IRETURN                -- ^ 172
   | LRETURN                -- ^ 173
   | FRETURN                -- ^ 174
@@ -484,7 +485,7 @@ instance BinaryState Integer Instruction where
   put (GOTO x)        = put1 167 x
   put (JSR x)         = put1 168 x
   put  RET            = putByte 169
-  put (TABLESWITCH def low high offs) = do
+  put (TABLESWITCH _ def low high offs) = do
                                    putByte 170
                                    offset <- getOffset
                                    let pads = padding offset
@@ -492,7 +493,7 @@ instance BinaryState Integer Instruction where
                                    put low
                                    put high
                                    forM_ offs put
-  put (LOOKUPSWITCH def n pairs) = do
+  put (LOOKUPSWITCH _ def n pairs) = do
                                    putByte 171
                                    offset <- getOffset
                                    let pads = padding offset
@@ -659,7 +660,7 @@ instance BinaryState Integer Instruction where
              low <- get
              high <- get
              offs <- replicateM (fromIntegral $ high - low + 1) get
-             return $ TABLESWITCH def low high offs
+             return $ TABLESWITCH (fromIntegral pads) def low high offs
       171 -> do
              offset <- bytesRead
              let pads = padding offset
@@ -667,7 +668,7 @@ instance BinaryState Integer Instruction where
              def <- get
              n <- get
              pairs <- replicateM (fromIntegral n) get
-             return $ LOOKUPSWITCH def n pairs
+             return $ LOOKUPSWITCH (fromIntegral pads) def n pairs
       172 -> return IRETURN
       173 -> return LRETURN
       174 -> return FRETURN

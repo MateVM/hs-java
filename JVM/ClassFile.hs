@@ -279,7 +279,7 @@ instance Binary (Class File) where
       fail $ "Invalid .class file MAGIC value: " ++ show magic
     minor <- get
     major <- get
-    when (major > 50) $
+    when (major > 51) $
       fail $ "Too new .class file format: " ++ show major
     poolsize <- getWord16be
     pool <- getPool (poolsize - 1)
